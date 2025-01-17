@@ -7,5 +7,5 @@ fn main() {
     let x = vec![Value::from(1.0), Value::from(-2.0)];
     let y = n.forward(&x);
     let _ = &y.backward();
-    draw_dot(y);
+    draw_dot(y.clone());
 }
