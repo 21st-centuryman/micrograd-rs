@@ -5,4 +5,5 @@ edition = "2021"
 
 [dependencies]
 kdam = "0.5.2"
+petgraph = "0.7.1"
 rand = "0.8.5"

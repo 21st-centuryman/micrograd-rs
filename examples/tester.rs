@@ -14,7 +14,7 @@ fn main() {
     let mut pb = tqdm!(total = range);
     let _ = pb.refresh();
 
-    let n = MLP::new(3, vec![4, 4, 1]);
+    let n = MLP::new(3, vec![4, 4, 1], true);
 
     let xs = vec![vec![2.0, 3.0, -1.0], vec![3.0, -1.0, 0.5], vec![0.5, 1.0, 1.0], vec![1.0, 1.0, -1.0]];
 

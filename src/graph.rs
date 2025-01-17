@@ -2,10 +2,12 @@
 // So we are just saving it
 
 use crate::engine::Value;
+use petgraph::dot::Dot;
 use petgraph::graph::Graph;
 use std::collections::HashSet;
-
-use petgraph_evcxr::draw_graph;
+use std::fs::File;
+use std::io::Write;
+use std::process::Command;
 
 fn build(v: Value, nodes: &mut HashSet<Value>, edges: &mut HashSet<(Value, Value)>) {
     if !nodes.contains(&v) {
@@ -18,7 +20,7 @@ fn build(v: Value, nodes: &mut HashSet<Value>, edges: &mut HashSet<(Value, Value
 }
 
 fn trace(root: Value) -> (HashSet<Value>, HashSet<(Value, Value)>) {
-    let mut nodes = HashSet3::new();
+    let mut nodes = HashSet::new();
     let mut edges = HashSet::new();
 
     build(root, &mut nodes, &mut edges);
@@ -43,5 +45,17 @@ pub fn draw_dot(root: Value) {
         let node_id2 = node_ids.iter().find(|(n, _)| n == n2).unwrap().1;
         g.add_edge(node_id1, node_id2, n2.borrow().op.clone().expect("REASON"));
     });
-    draw_graph(&g);
+
+    let _ = File::create("graph.dot").unwrap().write_all(Dot::new(&g).to_string().as_bytes()).unwrap();
+
+    let _ = Command::new("dot")
+        .arg("-Tsvg")
+        .arg("graph.dot")
+        .arg("-o")
+        .arg("graph.svg")
+        .output()
+        .expect("Failed to execute Graphviz");
+
+    // Read the SVG file
+    let _ = std::fs::read_to_string("graph.svg").unwrap();
 }

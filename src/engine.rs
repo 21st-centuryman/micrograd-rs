@@ -12,11 +12,11 @@ use std::{
 pub struct Value(Rc<RefCell<Values>>);
 
 pub struct Values {
-    data: f64,
-    grad: f64,
-    op: Option<String>,
-    prev: Vec<Value>,
-    _backward: Option<fn(value: &Ref<Values>)>,
+    pub data: f64,
+    pub grad: f64,
+    pub op: Option<String>,
+    pub prev: Vec<Value>,
+    pub _backward: Option<fn(value: &Ref<Values>)>,
 }
 
 impl Values {

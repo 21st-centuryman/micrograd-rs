@@ -16,3 +16,4 @@ Cargo.lock
 # Personal
 .DS_Store
 .ipynb_checkpoints
+graph.dot
