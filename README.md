@@ -10,7 +10,7 @@
 </div>
 
 ## ⇁  Welcome
-This is a thesis project by [Alexander Berg](https://github.com/21st-centuryman) and [Jabez Otieno](https://github.com/Jakunot) to rewrite the [micrograd](https://github.com/karpathy/micrograd) framework by Andrej Karpathy to Rust. The purpose of our thesis is to discuss the properties of the Rust programming language and if they are suitable or necessary for large language models and at which stages they might or might not be applicable. This thesis is planned to be presented in late fall of 2024, until then we plan to work on this whenever school and life allow us.
+This is a thesis project by [Alexander Berg](https://github.com/21st-centuryman) and [Jabez Otieno](https://github.com/Jakunot) to rewrite the [micrograd](https://github.com/karpathy/micrograd) framework by Andrej Karpathy to Rust. The purpose of our thesis is to discuss the properties of the Rust programming language and if they are suitable or necessary for large language models and at which stages they might or might not be applicable. This thesis is planned to be presented in spring of 2025, until then we plan to work on this whenever school and life allow us.
 
 ## ⇁  Example usage
 ```rs
@@ -47,7 +47,7 @@ draw_dot(y);
 ![2d neuron](graph.svg)
 
 ## ⇁  Running tests
-```console
+```consolt e
 cargo test
 ```
 ## ⇁  License
