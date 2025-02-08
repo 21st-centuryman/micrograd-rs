@@ -9,16 +9,15 @@ use micrograd::nn::MLP;
 
 fn main() {
     // Variables
-    let range = 20000;
-    let adjust = -0.001;
+    let range = 1000;
+    let adjust = -0.01;
     let mut pb = tqdm!(total = range);
     let _ = pb.refresh();
+    let ys = vec![1.0, -1.0, -1.0, 1.0]; // desired targets
 
-    let n = MLP::new(3, vec![4, 4, 1], true);
+    let n = MLP::new(3, vec![4, 4, 1]);
 
     let xs = vec![vec![2.0, 3.0, -1.0], vec![3.0, -1.0, 0.5], vec![0.5, 1.0, 1.0], vec![1.0, 1.0, -1.0]];
-
-    let ys = vec![1.0, -1.0, -1.0, 1.0]; // desired targets
 
     for k in 0..range {
         // Forward pass
@@ -53,7 +52,7 @@ fn main() {
             println!("DESIRED");
             println!("   [{:?}]", ys.iter().map(|x| format!("{:.3}", x)).collect::<Vec<_>>().join(", "));
         }
-        pb.set_description(format!("Loss: {:.3}", loss.data()));
+        pb.set_description(format!("Loss: {:.5}", loss.data()));
         let _ = pb.update(1);
     }
 }

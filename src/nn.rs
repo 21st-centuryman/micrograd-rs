@@ -11,7 +11,7 @@ impl Neuron {
     pub fn new(nin: usize, nonlin: bool) -> Neuron {
         Neuron {
             w: (0..nin).map(|_| Value::from(rand::thread_rng().gen_range(-1.0..=1.0))).collect(),
-            b: Value::from(rand::thread_rng().gen_range(-1.0..=1.0)),
+            b: Value::from(0.0), // Removing the bias
             nonlin,
         }
     }
@@ -24,11 +24,7 @@ impl Neuron {
             .reduce(|a, b| a + b)
             .unwrap())
             + self.b.clone();
-        if self.nonlin {
-            out.relu()
-        } else {
-            out
-        }
+        return if self.nonlin { out.relu() } else { out };
     }
 
     pub fn parameters(&self) -> Vec<Value> {
@@ -77,14 +73,14 @@ pub struct MLP {
 }
 
 impl MLP {
-    pub fn new(nin: usize, nouts: Vec<usize>, nonlin: bool) -> MLP {
+    pub fn new(nin: usize, nouts: Vec<usize>) -> MLP {
         MLP {
             layers: (0..nouts.len())
                 .map(|i| {
                     Layer::new(
                         vec![nin].into_iter().chain(nouts.clone().into_iter()).collect::<Vec<_>>()[i],
                         nouts[i],
-                        nonlin,
+                        i != nouts.len() - 1,
                     )
                 })
                 .collect(),
@@ -92,7 +88,7 @@ impl MLP {
     }
 
     pub fn forward(&self, x: Vec<Value>) -> Vec<Value> {
-        self.layers.iter().flat_map(|i| i.forward(&x)).collect()
+        self.layers.iter().fold(x, |x, layer| layer.forward(&x))
     }
 
     pub fn parameters(&self) -> Vec<Value> {
