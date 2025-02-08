@@ -6,7 +6,7 @@
 <br>
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/jay-lex/micrograd/main.yml?branch=main&style=for-the-badge&logo=github&logoColor=white&label=Test&labelColor=black)
 
-![awww](crab.png)
+![awww](assets/crab.png)
 </div>
 
 ## ⇁  Welcome
@@ -44,10 +44,11 @@ let y = (x * Value::from(2) + Value::from(1)).relu();
 y.backward();
 draw_dot(y);
 ```
-![2d neuron](graph.svg)
+![2d neuron](assets/graph.svg)
 
 ## ⇁  Running tests
-```consolt e
+All tests are in the `tests` folder. You can run them with the following command.
+```console
 cargo test
 ```
 ## ⇁  License
