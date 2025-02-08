@@ -1,16 +1,22 @@
-use std::cell::{Ref, RefCell};
-use std::collections::HashSet;
-use std::rc::Rc;
+use std::{
+    cell::{Ref, RefCell},
+    collections::HashSet,
+    fmt::{Debug, Formatter, Result},
+    hash::{Hash, Hasher},
+    iter::Sum,
+    ops,
+    rc::Rc,
+};
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Value(Rc<RefCell<Values>>);
 
 pub struct Values {
-    data: f64,
-    grad: f64,
-    op: Option<String>,
-    prev: Vec<Value>,
-    _backward: Option<fn(value: &Ref<Values>)>,
+    pub data: f64,
+    pub grad: f64,
+    pub op: Option<String>,
+    pub prev: Vec<Value>,
+    pub _backward: Option<fn(value: &Ref<Values>)>,
 }
 
 impl Values {
@@ -185,8 +191,8 @@ impl Value {
     }
 }
 
-impl std::fmt::Debug for Values {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Debug for Values {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "Value(data={}, grad={})", self.data, self.grad)
     }
 }
@@ -196,13 +202,13 @@ impl std::fmt::Debug for Values {
 Rust requires this boilerplate for stuff like hashset, derefrenceing into etc.
 ----------------------------------------------------------------------------------
 */
-impl std::hash::Hash for Value {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl Hash for Value {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.borrow().hash(state);
     }
 }
 
-impl std::ops::Deref for Value {
+impl ops::Deref for Value {
     type Target = Rc<RefCell<Values>>;
 
     fn deref(&self) -> &Self::Target {
@@ -224,8 +230,8 @@ impl PartialEq for Values {
 
 impl Eq for Values {}
 
-impl std::hash::Hash for Values {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl Hash for Values {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.data.to_bits().hash(state);
         self.grad.to_bits().hash(state);
         self.op.hash(state);
@@ -238,7 +244,7 @@ impl std::hash::Hash for Values {
 This allows us to use Value + Value instead of Value.add(Value), just so it works like micrograd
 ------------------------------------------------------------------------------------------------
 */
-impl std::ops::Add<Value> for Value {
+impl ops::Add<Value> for Value {
     type Output = Value;
 
     fn add(self, other: Value) -> Self::Output {
@@ -246,7 +252,7 @@ impl std::ops::Add<Value> for Value {
     }
 }
 
-impl<'a, 'b> std::ops::Add<&'b Value> for &'a Value {
+impl<'a, 'b> ops::Add<&'b Value> for &'a Value {
     type Output = Value;
 
     fn add(self, other: &'b Value) -> Self::Output {
@@ -254,7 +260,7 @@ impl<'a, 'b> std::ops::Add<&'b Value> for &'a Value {
     }
 }
 
-impl std::ops::Sub<Value> for Value {
+impl ops::Sub<Value> for Value {
     type Output = Value;
 
     fn sub(self, other: Value) -> Self::Output {
@@ -262,7 +268,7 @@ impl std::ops::Sub<Value> for Value {
     }
 }
 
-impl<'a, 'b> std::ops::Sub<&'b Value> for &'a Value {
+impl<'a, 'b> ops::Sub<&'b Value> for &'a Value {
     type Output = Value;
 
     fn sub(self, other: &'b Value) -> Self::Output {
@@ -270,7 +276,7 @@ impl<'a, 'b> std::ops::Sub<&'b Value> for &'a Value {
     }
 }
 
-impl std::ops::Mul<Value> for Value {
+impl ops::Mul<Value> for Value {
     type Output = Value;
 
     fn mul(self, other: Value) -> Self::Output {
@@ -278,7 +284,7 @@ impl std::ops::Mul<Value> for Value {
     }
 }
 
-impl<'a, 'b> std::ops::Mul<&'b Value> for &'a Value {
+impl<'a, 'b> ops::Mul<&'b Value> for &'a Value {
     type Output = Value;
 
     fn mul(self, other: &'b Value) -> Self::Output {
@@ -286,7 +292,7 @@ impl<'a, 'b> std::ops::Mul<&'b Value> for &'a Value {
     }
 }
 
-impl std::ops::Div<Value> for Value {
+impl ops::Div<Value> for Value {
     type Output = Value;
 
     fn div(self, other: Value) -> Self::Output {
@@ -294,7 +300,7 @@ impl std::ops::Div<Value> for Value {
     }
 }
 
-impl<'a, 'b> std::ops::Div<&'b Value> for &'a Value {
+impl<'a, 'b> ops::Div<&'b Value> for &'a Value {
     type Output = Value;
 
     fn div(self, other: &'b Value) -> Self::Output {
@@ -302,7 +308,7 @@ impl<'a, 'b> std::ops::Div<&'b Value> for &'a Value {
     }
 }
 
-impl std::ops::Neg for Value {
+impl ops::Neg for Value {
     type Output = Value;
 
     fn neg(self) -> Self::Output {
@@ -310,7 +316,7 @@ impl std::ops::Neg for Value {
     }
 }
 
-impl<'a> std::ops::Neg for &'a Value {
+impl<'a> ops::Neg for &'a Value {
     type Output = Value;
 
     fn neg(self) -> Self::Output {
@@ -318,7 +324,7 @@ impl<'a> std::ops::Neg for &'a Value {
     }
 }
 
-impl std::iter::Sum for Value {
+impl Sum for Value {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         Value::sum(iter)
     }

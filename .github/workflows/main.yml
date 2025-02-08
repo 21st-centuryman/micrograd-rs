@@ -21,3 +21,5 @@ jobs:
         override: true
     - name: Build Project
       run: cargo build
+    - name: Test Project
+      run: cargo test
