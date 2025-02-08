@@ -17,3 +17,4 @@ Cargo.lock
 .DS_Store
 .ipynb_checkpoints
 graph.dot
+make_moons.csv
