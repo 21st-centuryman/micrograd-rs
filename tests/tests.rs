@@ -127,7 +127,7 @@ fn gradient_decent() {
         (total_loss, accuracy)
     }
 
-    let range = 100;
+    let range = 70;
     for k in 0..range {
         let (total_loss, acc) = loss(x.clone(), y.clone(), &model);
 
@@ -140,8 +140,9 @@ fn gradient_decent() {
             let delta = learning_rate * p.borrow().grad;
             p.borrow_mut().data -= delta;
         }
-        if k == range {
+        if k == range-1 {
             assert_eq!(format!("{:.2}", acc * 100.0), "100.00");
+            assert_eq!(format!("{:.2}", total_loss.borrow().data), "0.01");
         }
     }
 }
