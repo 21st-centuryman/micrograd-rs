@@ -14,19 +14,18 @@ This is a thesis project by [Alexander Berg](https://github.com/21st-centuryman)
 
 ## ⇁  Example usage
 ```rs
-use micrograd::engine::Value;
 let a = Value::from(-4.0);
 let b = Value::from(2.0);
-let c = a  + b;
-let d = a * b + b.pow(3.0.into());
-let c += c + Value::from(1.0);
-let c += Value::from(1.0) + c + (-a);
-let d += d * Value::from(2.0) + (b + a).relu();
-let d += Value::from(3.0) * d + (b - a).relu();
-let e = c - d;
-let f = e.pow(2.0.into());
-let g = f / Value::from(2.0);
-let g += Value::from(10.0) / f;
+let mut c = &a + &b;
+let mut d = &a * &b + b.pow(&Value::from(3.0));
+c = &Value::from(2.0) * &c + Value::from(1.0);
+c = Value::from(1.0) + &Value::from(2.0) * &c + (-&a);
+d = &d + &(&d * &Value::from(2.0)) + (&b + &a).relu();
+d = &d + &(&Value::from(3.0) * &d) + (&b - &a).relu();
+let e = &c - &d;
+let f = e.pow(&Value::from(2.0));
+let mut g = &f / &Value::from(2.0);
+g = g + &Value::from(10.0) / &f;
 println!("{:.4}", g.borrow().data); // prints 24.7041
 g.backward();
 println!("{:.4}", a.borrow().grad); // print 138.8338

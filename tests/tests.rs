@@ -8,7 +8,7 @@ use csv;
 use micrograd::engine::Value;
 use micrograd::nn::MLP;
 
-//#[test]
+#[test]
 pub fn test_usage() {
     let a = Value::from(-4.0);
     let b = Value::from(2.0);
@@ -16,8 +16,8 @@ pub fn test_usage() {
     let mut c = &a + &b;
     let mut d = &a * &b + b.pow(&Value::from(3.0));
 
-    c = &c + &Value::from(1.0);
-    c = &Value::from(1.0) + &c + (-&a);
+    c = &Value::from(2.0) * &c + Value::from(1.0);
+    c = Value::from(1.0) + &Value::from(2.0) * &c + (-&a);
     d = &d + &(&d * &Value::from(2.0)) + (&b + &a).relu();
     d = &d + &(&Value::from(3.0) * &d) + (&b - &a).relu();
 
