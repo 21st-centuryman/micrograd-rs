@@ -73,8 +73,10 @@ impl Value {
 
     pub fn mul(a: &Value, b: &Value) -> Value {
         let _backward: fn(value: &Ref<Values>) = |out| {
-            out.prev[0].borrow_mut().grad += out.prev[1].borrow().data * out.grad;
-            out.prev[1].borrow_mut().grad += out.prev[0].borrow().data * out.grad;
+            let a_data = out.prev[0].borrow().data;
+            let b_data = out.prev[1].borrow().data;
+            out.prev[0].borrow_mut().grad += b_data * out.grad;
+            out.prev[1].borrow_mut().grad += a_data * out.grad;
         };
 
         Value::new(Values::new(

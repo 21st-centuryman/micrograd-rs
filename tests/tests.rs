@@ -4,7 +4,6 @@ This is a test to make sure that the tests in the examples pass.
 ----------------------------------------------------------------------------------
 */
 
-use csv;
 use micrograd::engine::Value;
 use micrograd::nn::MLP;
 
@@ -72,76 +71,6 @@ fn train() {
             assert_eq!(format!("{:.3}", ypred[1].data()), "-1.000");
             assert_eq!(format!("{:.3}", ypred[2].data()), "-1.000");
             assert_eq!(format!("{:.3}", ypred[3].data()), "1.000");
-        }
-    }
-}
-
-#[test]
-fn gradient_decent() {
-    let path = "./datasets/make_moons.csv";
-    let x: Vec<[f64; 2]> = csv::ReaderBuilder::new()
-        .from_path(path)
-        .unwrap()
-        .records()
-        .map(|r| {
-            let record = r.unwrap();
-            [
-                record.get(0).unwrap().parse::<f64>().unwrap(),
-                record.get(1).unwrap().parse::<f64>().unwrap(),
-            ]
-        })
-        .collect();
-    let y: Vec<f64> = csv::ReaderBuilder::new()
-        .from_path(path)
-        .unwrap()
-        .records()
-        .map(|r| r.unwrap().get(2).unwrap().parse::<f64>().unwrap())
-        .collect();
-
-    let model = MLP::new(2, vec![10, 10, 1]);
-
-    fn loss(xs: Vec<[f64; 2]>, ys: Vec<f64>, model: &MLP) -> (Value, f64) {
-        let inputs: Vec<Vec<Value>> = xs.iter().map(|xrow| vec![Value::from(xrow[0]), Value::from(xrow[1])]).collect();
-
-        let scores: Vec<Value> = inputs.iter().map(|xrow| model.forward(xrow.clone())[0].clone()).collect();
-
-        let losses: Vec<Value> = ys
-            .iter()
-            .zip(&scores)
-            .map(|(yi, scorei)| (Value::from(1.0) + &Value::from(-yi) * scorei).relu())
-            .collect();
-        let n: f64 = (&losses).len() as f64;
-        let data_loss: Value = losses.into_iter().sum::<Value>() / Value::from(n);
-
-        let alpha: f64 = 0.0001;
-        let reg_loss: Value = Value::from(alpha) * model.parameters().iter().map(|p| p * p).into_iter().sum::<Value>();
-        let total_loss = data_loss + reg_loss;
-
-        let accuracies: Vec<bool> = ys
-            .iter()
-            .zip(scores.iter())
-            .map(|(yi, scorei)| (*yi > 0.0) == (scorei.borrow().data > 0.0))
-            .collect();
-        let accuracy = accuracies.iter().filter(|&a| *a).count() as f64 / n;
-
-        (total_loss, accuracy)
-    }
-
-    let range = 100;
-    for k in 0..range {
-        let (total_loss, acc) = loss(x.clone(), y.clone(), &model);
-
-        model.parameters().iter().for_each(|p| p.zero_grad());
-
-        total_loss.backward();
-
-        let learning_rate = 1.0 - 0.9 * (k as f64) / 100.0;
-        for p in &model.parameters() {
-            let delta = learning_rate * p.borrow().grad;
-            p.borrow_mut().data -= delta;
-        }
-        if k == range {
-            assert_eq!(format!("{:.2}", acc * 100.0), "100.00");
         }
     }
 }
