@@ -32,7 +32,7 @@ pub fn test_usage() {
     assert_eq!(format!("{:.4}", b.borrow().grad), "645.5773");
 }
 
-//#[test]
+#[test]
 fn train() {
     // Variables
     let range = 2000;
@@ -76,7 +76,7 @@ fn train() {
     }
 }
 
-//#[test]
+#[test]
 fn gradient_decent() {
     let path = "./datasets/make_moons.csv";
     let x: Vec<[f64; 2]> = csv::ReaderBuilder::new()
