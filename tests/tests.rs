@@ -4,7 +4,6 @@ This is a test to make sure that the tests in the examples pass.
 ----------------------------------------------------------------------------------
 */
 
-use csv;
 use micrograd::engine::Value;
 use micrograd::nn::MLP;
 
