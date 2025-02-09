@@ -7,8 +7,8 @@ fn main() {
     let mut c = &a + &b;
     let mut d = &a * &b + b.pow(&Value::from(3.0));
 
-    c = &c + &Value::from(1.0);
-    c = &Value::from(1.0) + &c + (-&a);
+    c = &Value::from(2.0) * &c + Value::from(1.0);
+    c = Value::from(1.0) + &Value::from(2.0) * &c + (-&a);
     d = &d + &(&d * &Value::from(2.0)) + (&b + &a).relu();
     d = &d + &(&Value::from(3.0) * &d) + (&b - &a).relu();
 
@@ -19,6 +19,14 @@ fn main() {
 
     println!("{:.4}", g.borrow().data); // prints 24.7041, the outcome of this forward pass
     g.backward();
-    println!("{:.4}", a.borrow().grad); // print 138.8338, i.e. the numerical value of dg/da
+    println!("{:.4}", a.borrow().grad); // print 145.7755, i.e. the numerical value of dg/da
     println!("{:.4}", b.borrow().grad); // print 645.5773, i.e. the numerical value of dg/db
+
+    println!("a is {:?}", a);
+    println!("b is {:?}", b);
+    println!("c is {:?}", c);
+    println!("d is {:?}", d);
+    println!("e is {:?}", e);
+    println!("f is {:?}", f);
+    println!("g is {:?}", g);
 }
