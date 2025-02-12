@@ -89,7 +89,7 @@ impl Value {
 
     pub fn pow(&self, other: &Value) -> Value {
         let _backward: fn(value: &Ref<Values>) = |out| {
-            let mut base = out.prev[0].borrow_mut(); // I want to remove this
+            let mut base = out.prev[0].borrow_mut();
             base.grad += out.prev[1].borrow().data * (base.data.powf(out.prev[1].borrow().data - 1.0)) * out.grad;
         };
 
@@ -104,7 +104,7 @@ impl Value {
     // Negative power ie x^-1, this will allow us to divide
     pub fn powneg(&self) -> Value {
         let _backward: fn(value: &Ref<Values>) = |out| {
-            let mut base = out.prev[0].borrow_mut(); // and remove this
+            let mut base = out.prev[0].borrow_mut();
             base.grad += -(1.0 / base.data.powf(2.0)) * out.grad;
         };
 
@@ -156,8 +156,6 @@ impl Value {
     }
 
     pub fn sum<I: Iterator<Item = Self>>(mut iter: I) -> Self {
-        // iter.fold(Value::from(0.0), |sum, val| sum + val) <- For some reason I couldn't get this
-        // to work
         let mut sum = Value::from(0.0);
         loop {
             let val = iter.next();
@@ -224,6 +222,7 @@ impl<T: Into<f64>> From<T> for Value {
     }
 }
 
+// In an ideal world we use the UUID package. But for this thesis I want to minimize the amount of packages used
 impl PartialEq for Values {
     fn eq(&self, other: &Self) -> bool {
         self.data == other.data && self.grad == other.grad && self.op == other.op && self.prev == other.prev
