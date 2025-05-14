@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 rand = "0.8.5"
+uuid = { version = "1.16.0", features = ["v4"] }
 # For examples
 kdam = "0.5.2"
 petgraph = "0.7.1"
