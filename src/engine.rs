@@ -15,14 +15,14 @@ pub struct Value(Rc<RefCell<Values>>);
 pub struct Values {
     pub data: f64,
     pub grad: f64,
-    pub op: Option<String>,
+    pub op: Option<&'static str>,
     pub prev: Vec<Value>,
     pub _backward: Option<fn(value: &Ref<Values>)>,
     pub id: Uuid,
 }
 
 impl Values {
-    fn new(data: f64, op: Option<String>, prev: Vec<Value>, _backward: Option<fn(value: &Ref<Values>)>) -> Values {
+    fn new(data: f64, op: Option<&'static str>, prev: Vec<Value>, _backward: Option<fn(value: &Ref<Values>)>) -> Values {
         Values {
             data,
             grad: 0.0,
@@ -68,7 +68,7 @@ impl Value {
 
         Value::new(Values::new(
             a.borrow().data + b.borrow().data,
-            Some("+".to_string()),
+            Some("+"),
             vec![a.clone(), b.clone()],
             Some(_backward),
         ))
@@ -84,7 +84,7 @@ impl Value {
 
         Value::new(Values::new(
             a.borrow().data * b.borrow().data,
-            Some("*".to_string()),
+            Some("*"),
             vec![a.clone(), b.clone()],
             Some(_backward),
         ))
@@ -98,7 +98,7 @@ impl Value {
 
         Value::new(Values::new(
             self.borrow().data.powf(other.borrow().data),
-            Some("^".to_string()),
+            Some("^"),
             vec![self.clone(), other.clone()],
             Some(_backward),
         ))
@@ -111,12 +111,7 @@ impl Value {
             base.grad += -(1.0 / base.data.powf(2.0)) * out.grad;
         };
 
-        Value::new(Values::new(
-            1.0 / self.borrow().data,
-            Some("^".to_string()),
-            vec![self.clone()],
-            Some(_backward),
-        ))
+        Value::new(Values::new(1.0 / self.borrow().data, Some("^"), vec![self.clone()], Some(_backward)))
     }
     pub fn tanh(&self) -> Value {
         let _backward: fn(value: &Ref<Values>) = |out| {
@@ -125,24 +120,14 @@ impl Value {
             outue.grad += (1.0 - out1.powf(2.0)) * out.grad;
         };
 
-        Value::new(Values::new(
-            self.borrow().data.tanh(),
-            Some("tanh".to_string()),
-            vec![self.clone()],
-            Some(_backward),
-        ))
+        Value::new(Values::new(self.borrow().data.tanh(), Some("tanh"), vec![self.clone()], Some(_backward)))
     }
 
     pub fn exp(self) -> Value {
         let _backward: fn(value: &Ref<Values>) = |out| {
             out.prev[0].borrow_mut().grad += out.data * out.grad;
         };
-        Value::new(Values::new(
-            self.borrow().data.exp(),
-            Some("exp".to_string()),
-            vec![self.clone()],
-            Some(_backward),
-        ))
+        Value::new(Values::new(self.borrow().data.exp(), Some("exp"), vec![self.clone()], Some(_backward)))
     }
 
     pub fn relu(self) -> Value {
@@ -152,7 +137,7 @@ impl Value {
 
         Value::new(Values::new(
             self.borrow().data.max(0.0),
-            Some("ReLU".to_string()),
+            Some("ReLU"),
             vec![self.clone()],
             Some(_backward),
         ))
