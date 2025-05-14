@@ -235,10 +235,7 @@ impl Eq for Values {}
 
 impl Hash for Values {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.data.to_bits().hash(state);
-        self.grad.to_bits().hash(state);
-        self.op.hash(state);
-        self.prev.hash(state);
+        self.id.hash(state);
     }
 }
 
