@@ -19,7 +19,7 @@ fn main() {
 
     println!("{:.4}", g.borrow().data); // prints 24.7041, the outcome of this forward pass
     g.backward();
-    println!("{:.4}", a.borrow().grad); // print 145.7755, i.e. the numerical value of dg/da
+    println!("{:.4}", a.borrow().grad); // print 138.8338, i.e. the numerical value of dg/da
     println!("{:.4}", b.borrow().grad); // print 645.5773, i.e. the numerical value of dg/db
 
     println!("a is {:?}", a);
