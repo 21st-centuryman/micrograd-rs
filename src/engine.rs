@@ -7,6 +7,7 @@ use std::{
     ops,
     rc::Rc,
 };
+use uuid::Uuid;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Value(Rc<RefCell<ValueData>>);
@@ -17,6 +18,7 @@ pub struct ValueData {
     pub op: Option<&'static str>,
     pub prev: Vec<Value>,
     pub _backward: Option<fn(value: &Ref<ValueData>)>,
+    pub id: Uuid,
 }
 
 impl ValueData {
@@ -27,6 +29,7 @@ impl ValueData {
             op,
             prev,
             _backward,
+            id: Uuid::new_v4(),
         }
     }
 }
@@ -215,7 +218,7 @@ impl<T: Into<f64>> From<T> for Value {
 // In an ideal world we use the UUID package. But for this thesis I want to minimize the amount of packages used
 impl PartialEq for ValueData {
     fn eq(&self, other: &Self) -> bool {
-        self.data == other.data && self.grad == other.grad && self.op == other.op && self.prev == other.prev
+        self.id == other.id
     }
 }
 
@@ -223,10 +226,7 @@ impl Eq for ValueData {}
 
 impl Hash for ValueData {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.data.to_bits().hash(state);
-        self.grad.to_bits().hash(state);
-        self.op.hash(state);
-        self.prev.hash(state);
+        self.id.hash(state);
     }
 }
 

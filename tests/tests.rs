@@ -27,7 +27,7 @@ pub fn test_usage() {
 
     assert_eq!(format!("{:.4}", g.borrow().data), "24.7041");
     g.backward();
-    assert_eq!(format!("{:.4}", a.borrow().grad), "145.7755");
+    assert_eq!(format!("{:.4}", a.borrow().grad), "138.8338");
     assert_eq!(format!("{:.4}", b.borrow().grad), "645.5773");
 }
 
