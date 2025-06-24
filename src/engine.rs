@@ -9,19 +9,19 @@ use std::{
 };
 
 #[derive(Clone, Eq, PartialEq, Debug)]
-pub struct Value(Rc<RefCell<Values>>);
+pub struct Value(Rc<RefCell<ValueData>>);
 
-pub struct Values {
+pub struct ValueData {
     pub data: f64,
     pub grad: f64,
     pub op: Option<&'static str>,
     pub prev: Vec<Value>,
-    pub _backward: Option<fn(value: &Ref<Values>)>,
+    pub _backward: Option<fn(value: &Ref<ValueData>)>,
 }
 
-impl Values {
-    fn new(data: f64, op: Option<&'static str>, prev: Vec<Value>, _backward: Option<fn(value: &Ref<Values>)>) -> Values {
-        Values {
+impl ValueData {
+    fn new(data: f64, op: Option<&'static str>, prev: Vec<Value>, _backward: Option<fn(value: &Ref<ValueData>)>) -> ValueData {
+        ValueData {
             data,
             grad: 0.0,
             op,
@@ -36,7 +36,7 @@ impl Value {
         t.into()
     }
 
-    fn new(value: Values) -> Value {
+    fn new(value: ValueData) -> Value {
         Value(Rc::new(RefCell::new(value)))
     }
 
@@ -58,12 +58,12 @@ impl Value {
     }
 
     pub fn add(a: &Value, b: &Value) -> Value {
-        let _backward: fn(value: &Ref<Values>) = |out| {
+        let _backward: fn(value: &Ref<ValueData>) = |out| {
             out.prev[0].borrow_mut().grad += out.grad;
             out.prev[1].borrow_mut().grad += out.grad;
         };
 
-        Value::new(Values::new(
+        Value::new(ValueData::new(
             a.borrow().data + b.borrow().data,
             Some("+"),
             vec![a.clone(), b.clone()],
@@ -72,14 +72,14 @@ impl Value {
     }
 
     pub fn mul(a: &Value, b: &Value) -> Value {
-        let _backward: fn(value: &Ref<Values>) = |out| {
+        let _backward: fn(value: &Ref<ValueData>) = |out| {
             let a_data = out.prev[0].borrow().data;
             let b_data = out.prev[1].borrow().data;
             out.prev[0].borrow_mut().grad += b_data * out.grad;
             out.prev[1].borrow_mut().grad += a_data * out.grad;
         };
 
-        Value::new(Values::new(
+        Value::new(ValueData::new(
             a.borrow().data * b.borrow().data,
             Some("*"),
             vec![a.clone(), b.clone()],
@@ -88,12 +88,12 @@ impl Value {
     }
 
     pub fn pow(&self, other: &Value) -> Value {
-        let _backward: fn(value: &Ref<Values>) = |out| {
+        let _backward: fn(value: &Ref<ValueData>) = |out| {
             let mut base = out.prev[0].borrow_mut();
             base.grad += out.prev[1].borrow().data * (base.data.powf(out.prev[1].borrow().data - 1.0)) * out.grad;
         };
 
-        Value::new(Values::new(
+        Value::new(ValueData::new(
             self.borrow().data.powf(other.borrow().data),
             Some("^"),
             vec![self.clone(), other.clone()],
@@ -103,36 +103,41 @@ impl Value {
 
     // Negative power ie x^-1, this will allow us to divide
     pub fn powneg(&self) -> Value {
-        let _backward: fn(value: &Ref<Values>) = |out| {
+        let _backward: fn(value: &Ref<ValueData>) = |out| {
             let mut base = out.prev[0].borrow_mut();
             base.grad += -(1.0 / base.data.powf(2.0)) * out.grad;
         };
 
-        Value::new(Values::new(1.0 / self.borrow().data, Some("^"), vec![self.clone()], Some(_backward)))
+        Value::new(ValueData::new(1.0 / self.borrow().data, Some("^"), vec![self.clone()], Some(_backward)))
     }
     pub fn tanh(&self) -> Value {
-        let _backward: fn(value: &Ref<Values>) = |out| {
+        let _backward: fn(value: &Ref<ValueData>) = |out| {
             let out1 = out.prev[0].borrow().data.tanh();
             let mut outue = out.prev[0].borrow_mut();
             outue.grad += (1.0 - out1.powf(2.0)) * out.grad;
         };
 
-        Value::new(Values::new(self.borrow().data.tanh(), Some("tanh"), vec![self.clone()], Some(_backward)))
+        Value::new(ValueData::new(
+            self.borrow().data.tanh(),
+            Some("tanh"),
+            vec![self.clone()],
+            Some(_backward),
+        ))
     }
 
     pub fn exp(self) -> Value {
-        let _backward: fn(value: &Ref<Values>) = |out| {
+        let _backward: fn(value: &Ref<ValueData>) = |out| {
             out.prev[0].borrow_mut().grad += out.data * out.grad;
         };
-        Value::new(Values::new(self.borrow().data.exp(), Some("exp"), vec![self.clone()], Some(_backward)))
+        Value::new(ValueData::new(self.borrow().data.exp(), Some("exp"), vec![self.clone()], Some(_backward)))
     }
 
     pub fn relu(self) -> Value {
-        let _backward: fn(value: &Ref<Values>) = |out| {
+        let _backward: fn(value: &Ref<ValueData>) = |out| {
             out.prev[0].borrow_mut().grad += (out.data > 0.0) as i8 as f64 * out.grad;
         };
 
-        Value::new(Values::new(
+        Value::new(ValueData::new(
             self.borrow().data.max(0.0),
             Some("ReLU"),
             vec![self.clone()],
@@ -176,7 +181,7 @@ impl Value {
     }
 }
 
-impl Debug for Values {
+impl Debug for ValueData {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "Value(data={}, grad={})", self.data, self.grad)
     }
@@ -194,7 +199,7 @@ impl Hash for Value {
 }
 
 impl ops::Deref for Value {
-    type Target = Rc<RefCell<Values>>;
+    type Target = Rc<RefCell<ValueData>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -203,20 +208,20 @@ impl ops::Deref for Value {
 
 impl<T: Into<f64>> From<T> for Value {
     fn from(t: T) -> Value {
-        Value::new(Values::new(t.into(), None, Vec::new(), None))
+        Value::new(ValueData::new(t.into(), None, Vec::new(), None))
     }
 }
 
 // In an ideal world we use the UUID package. But for this thesis I want to minimize the amount of packages used
-impl PartialEq for Values {
+impl PartialEq for ValueData {
     fn eq(&self, other: &Self) -> bool {
         self.data == other.data && self.grad == other.grad && self.op == other.op && self.prev == other.prev
     }
 }
 
-impl Eq for Values {}
+impl Eq for ValueData {}
 
-impl Hash for Values {
+impl Hash for ValueData {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.data.to_bits().hash(state);
         self.grad.to_bits().hash(state);

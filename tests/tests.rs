@@ -38,7 +38,7 @@ fn train() {
     let adjust = -0.01;
     let ys = vec![1.0, -1.0, -1.0, 1.0]; // desired targets
 
-    let n = MLP::new(3, vec![4, 4, 1]);
+    let n: MLP<3, 4, 4, 1> = MLP::new();
 
     let xs = vec![vec![2.0, 3.0, -1.0], vec![3.0, -1.0, 0.5], vec![0.5, 1.0, 1.0], vec![1.0, 1.0, -1.0]];
 
@@ -46,7 +46,10 @@ fn train() {
         // Forward pass
         let ypred: Vec<Value> = xs
             .iter()
-            .map(|x| n.forward(x.iter().map(|x| Value::from(*x)).collect())[0].clone())
+            .map(|x| {
+                let input_array: [Value; 3] = [Value::from(x[0]), Value::from(x[1]), Value::from(x[2])];
+                n.forward(&input_array)[0].clone()
+            })
             .collect();
         let loss: Value = ypred
             .clone()
