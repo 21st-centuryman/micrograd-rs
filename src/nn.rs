@@ -64,7 +64,6 @@ impl<const P: usize, const N: usize> Layer<P, N> {
     pub fn parameters(&self) -> impl Iterator<Item = &Value> {
         self.neurons.iter().flat_map(|n| n.parameters())
     }
-
     //pub fn parameters(&self) -> [Value; N * (P + 1)] {
     //    std::array::from_fn(|i| self.neurons[i / (P + 1)].parameters()[i % (P + 1)].clone())
     //}
