@@ -1,16 +1,16 @@
 use crate::engine::Value;
 use rand::Rng;
 
-//impl<const N: usize> std::fmt::Debug for Neuron<N> {
-//    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//        write!(f, "{}Neuron({})", if self.nonlin { "ReLU" } else { "Linear" }, N)
-//    }
-//}
-
 pub struct Layer<const P: usize, const N: usize> {
     w: [[Value; P]; N],
     b: [Value; N],
     nonlin: bool,
+}
+
+pub struct MLP<const N1: usize, const N2: usize, const N3: usize, const N4: usize> {
+    l1: Layer<N1, N2>,
+    l2: Layer<N2, N3>,
+    l3: Layer<N3, N4>,
 }
 
 impl<const P: usize, const N: usize> Layer<P, N> {
@@ -34,22 +34,6 @@ impl<const P: usize, const N: usize> Layer<P, N> {
     }
 }
 
-//impl<const P: usize, const N: usize> std::fmt::Debug for Layer<P, N> {
-//    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//        write!(
-//            f,
-//            "Layer of [{:?}]",
-//            self.neurons.iter().map(|n| format!("{:?}", n)).collect::<Vec<_>>().join(", ")
-//        )
-//    }
-//}
-
-pub struct MLP<const N1: usize, const N2: usize, const N3: usize, const N4: usize> {
-    l1: Layer<N1, N2>,
-    l2: Layer<N2, N3>,
-    l3: Layer<N3, N4>,
-}
-
 impl<const N1: usize, const N2: usize, const N3: usize, const N4: usize> MLP<N1, N2, N3, N4> {
     pub fn new() -> Self {
         Self {
@@ -66,21 +50,16 @@ impl<const N1: usize, const N2: usize, const N3: usize, const N4: usize> MLP<N1,
     pub fn parameters(&self) -> impl Iterator<Item = &Value> {
         self.l1.parameters().chain(self.l2.parameters()).chain(self.l3.parameters())
     }
-
-    //pub fn parameters(&self) -> [Value; N2 * (N1 + 1) + N3 * (N2 + 1) + N4 * (N3 + 1)] {
-    //    let seg1 = N2 * (N1 + 1); // Layer 1 end
-    //    let seg2 = seg1 + N3 * (N2 + 1); // Layer 2 end
-
-    //    std::array::from_fn(|i| match i {
-    //        i if i < seg1 => self.l1.parameters()[i].clone(),
-    //        i if i < seg2 => self.l2.parameters()[i - seg1].clone(),
-    //        _ => self.l3.parameters()[i - seg2].clone(),
-    //    })
-    //}
 }
 
-//impl<const N1: usize, const N2: usize, const N3: usize, const N4: usize> std::fmt::Debug for MLP<N1, N2, N3, N4> {
-//    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//        write!(f, "MLP of [{:?}, {:?}, {:?}]", self.l1, self.l2, self.l3)
-//    }
-//}
+impl<const P: usize, const N: usize> std::fmt::Debug for Layer<P, N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Layer [{}, {}]", if self.nonlin { "ReLU" } else { "Linear" }, N)
+    }
+}
+
+impl<const N1: usize, const N2: usize, const N3: usize, const N4: usize> std::fmt::Debug for MLP<N1, N2, N3, N4> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "MLP of [{:?}, {:?}, {:?}]", self.l1, self.l2, self.l3)
+    }
+}
