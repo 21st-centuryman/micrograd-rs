@@ -7,9 +7,8 @@ use std::{
     ops,
     rc::Rc,
 };
-use uuid::Uuid;
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Debug)]
 pub struct Value(Rc<RefCell<Values>>);
 
 pub struct Values {
@@ -18,7 +17,6 @@ pub struct Values {
     pub op: Option<String>,
     pub prev: Vec<Value>,
     pub _backward: Option<fn(value: &Ref<Values>)>,
-    pub id: Uuid,
 }
 
 impl Values {
@@ -29,7 +27,6 @@ impl Values {
             op,
             prev,
             _backward,
-            id: Uuid::new_v4(),
         }
     }
 }
@@ -205,11 +202,6 @@ impl Debug for Values {
 Rust requires this boilerplate for stuff like hashset, derefrenceing into etc.
 ----------------------------------------------------------------------------------
 */
-impl Hash for Value {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.borrow().hash(state);
-    }
-}
 
 impl ops::Deref for Value {
     type Target = Rc<RefCell<Values>>;
@@ -225,17 +217,17 @@ impl<T: Into<f64>> From<T> for Value {
     }
 }
 
-impl PartialEq for Values {
+impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
+        Rc::ptr_eq(&self.0, &other.0)
     }
 }
 
-impl Eq for Values {}
+impl Eq for Value {}
 
-impl Hash for Values {
+impl Hash for Value {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
+        Rc::as_ptr(&self.0).hash(state);
     }
 }
 
