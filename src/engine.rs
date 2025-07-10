@@ -7,9 +7,8 @@ use std::{
     ops,
     rc::Rc,
 };
-use uuid::Uuid;
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Debug)]
 pub struct Value(Rc<RefCell<ValueData>>);
 
 pub struct ValueData {
@@ -18,7 +17,6 @@ pub struct ValueData {
     pub op: Option<&'static str>,
     pub prev: Vec<Value>,
     pub _backward: Option<fn(value: &Ref<ValueData>)>,
-    pub id: Uuid,
 }
 
 impl ValueData {
@@ -29,7 +27,6 @@ impl ValueData {
             op,
             prev,
             _backward,
-            id: Uuid::new_v4(),
         }
     }
 }
@@ -195,12 +192,6 @@ impl Debug for ValueData {
 Rust requires this boilerplate for stuff like hashset, derefrenceing into etc.
 ----------------------------------------------------------------------------------
 */
-impl Hash for Value {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.borrow().hash(state);
-    }
-}
-
 impl ops::Deref for Value {
     type Target = Rc<RefCell<ValueData>>;
 
@@ -215,18 +206,17 @@ impl<T: Into<f64>> From<T> for Value {
     }
 }
 
-// In an ideal world we use the UUID package. But for this thesis I want to minimize the amount of packages used
-impl PartialEq for ValueData {
+impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
+        Rc::ptr_eq(&self.0, &other.0)
     }
 }
 
-impl Eq for ValueData {}
+impl Eq for Value {}
 
-impl Hash for ValueData {
+impl Hash for Value {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
+        Rc::as_ptr(&self.0).hash(state);
     }
 }
 

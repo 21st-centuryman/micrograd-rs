@@ -1,6 +1,17 @@
 use crate::engine::Value;
 use rand::Rng;
 
+// MLP Macros
+macro_rules! forward {
+    ($x:expr)                      => { $x };
+    ($outer:expr, $($rest:expr),+) => { $outer.forward(&forward!($($rest),+)) };
+}
+macro_rules! parameters {
+    ($layer:expr)                  => { $layer.parameters() };
+    ($layer:expr, $($rest:expr),+) => { $layer.parameters().chain(parameters!($($rest),+)) };
+}
+
+// Structs
 pub struct Layer<const P: usize, const N: usize> {
     w: [[Value; P]; N],
     b: [Value; N],
@@ -13,6 +24,7 @@ pub struct MLP<const N1: usize, const N2: usize, const N3: usize, const N4: usiz
     l3: Layer<N3, N4>,
 }
 
+// Implementation
 impl<const P: usize, const N: usize> Layer<P, N> {
     pub fn new(nonlin: bool) -> Layer<P, N> {
         Self {
@@ -44,11 +56,10 @@ impl<const N1: usize, const N2: usize, const N3: usize, const N4: usize> MLP<N1,
     }
 
     pub fn forward(&self, x: &[Value; N1]) -> [Value; N4] {
-        self.l3.forward(&self.l2.forward(&self.l1.forward(&x)))
+        forward!(self.l3, self.l2, self.l1, x)
     }
-
     pub fn parameters(&self) -> impl Iterator<Item = &Value> {
-        self.l1.parameters().chain(self.l2.parameters()).chain(self.l3.parameters())
+        parameters!(self.l1, self.l2, self.l3)
     }
 }
 
@@ -63,3 +74,63 @@ impl<const N1: usize, const N2: usize, const N3: usize, const N4: usize> std::fm
         write!(f, "MLP of [{:?}, {:?}, {:?}]", self.l1, self.l2, self.l3)
     }
 }
+
+//#[macro_export]
+//macro_rules! mlp {
+//    ($n1:expr, $n2:expr, $n3:expr, $n4:expr) => {
+//        pub struct MLP<const N1: usize, const N2: usize, const N3: usize, const N4: usize> {
+//            l1: Layer<N1, N2>,
+//            l2: Layer<N2, N3>,
+//            l3: Layer<N3, N4>,
+//        }
+//
+//        impl<const N1: usize, const N2: usize, const N3: usize, const N4: usize> MLP<N1, N2, N3, N4> {
+//            pub fn new() -> Self {
+//                Self {
+//                    l1: Layer::new(true),
+//                    l2: Layer::new(true),
+//                    l3: Layer::new(false),
+//                }
+//            }
+//
+//            pub fn forward(&self, x: &[Value; N1]) -> [Value; N4] {
+//                forward!(self.l3, self.l2, self.l1, x)
+//            }
+//            pub fn parameters(&self) -> impl Iterator<Item = &Value> {
+//                parameters!(self.l1, self.l2, self.l3)
+//            }
+//        }
+//        impl<const N1: usize, const N2: usize, const N3: usize, const N4: usize> std::fmt::Debug for MLP<N1, N2, N3, N4> {
+//            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//                write!(f, "MLP of [{:?}, {:?}, {:?}]", self.l1, self.l2, self.l3)
+//            }
+//        }
+//    };
+//    ($n1:expr, $n2:expr, $n3:expr) => {
+//        pub struct MLP<const N1: usize, const N2: usize, const N3: usize> {
+//        l1: Layer<N1, N2>,
+//        l2: Layer<N2, N3>,
+//    }
+//
+//        impl<const N1: usize, const N2: usize, const N3: usize> MLP<N1, N2, N3> {
+//        pub fn new() -> Self {
+//    Self {
+//    l1: Layer::new(true),
+//    l2: Layer::new(false),
+//    }
+//            }
+//
+//            pub fn forward(&self, x: &[Value; N1]) -> [Value; N3] {
+//                forward!(self.l2, self.l1, x)
+//            }
+//            pub fn parameters(&self) -> impl Iterator<Item = &Value> {
+//                parameters!(self.l1, self.l2)
+//            }
+//        }
+//        impl<const N1: usize, const N2: usize, const N3: usize: usize> std::fmt::Debug for MLP<N1, N2, N3> {
+//            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//                write!(f, "MLP of [{:?}, {:?}, {:?}]", self.l1, self.l2)
+//            }
+//        }
+//    };
+//}

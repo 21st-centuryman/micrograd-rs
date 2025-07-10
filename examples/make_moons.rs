@@ -1,6 +1,7 @@
 use csv;
 use kdam::{tqdm, BarExt};
 use micrograd::engine::Value;
+//use micrograd::mlp;
 use micrograd::nn::MLP;
 
 fn main() {
@@ -20,6 +21,7 @@ fn main() {
         .unzip(); // Splits into two vectors
 
     let model: MLP<2, 16, 16, 1> = MLP::new();
+    //let model = mlp!(2, 16, 16, 1);
 
     fn loss(xs: &[[f64; 2]], ys: &[f64], model: &MLP<2, 16, 16, 1>) -> Value {
         let inputs: Vec<Vec<Value>> = xs.iter().map(|xrow| vec![Value::from(xrow[0]), Value::from(xrow[1])]).collect();
