@@ -86,6 +86,9 @@ impl Value {
             Some(_backward),
         ))
     }
+    pub fn matmul<const M: usize, const N: usize>(a: &[[Value; N]; M], b: &[Value; N]) -> [Value; M] {
+        std::array::from_fn(|i| a[i].iter().zip(b.iter()).map(|(a, b)| a * b).reduce(|a, b| a + b).unwrap())
+    }
 
     pub fn pow(&self, other: &Value) -> Value {
         let _backward: fn(value: &Ref<Values>) = |out| {
