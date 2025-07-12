@@ -13,35 +13,9 @@ macro_rules! parameters {
 
 // Structs
 pub struct Layer<const P: usize, const N: usize> {
-    neurons: [Neuron<P>; N],
-}
-
-impl<const P: usize, const N: usize> Layer<P, N> {
-    pub fn new(nonlin: bool) -> Layer<P, N> {
-        Self {
-            neurons: std::array::from_fn(|_| Neuron::new(nonlin)),
-        }
-    }
-
-    pub fn forward(&self, x: &[Value; P]) -> [Value; N] {
-        std::array::from_fn(|i| self.neurons[i].forward(x))
-    }
-
-    pub fn parameters(&self) -> impl Iterator<Item = &Value> {
-        self.neurons.iter().flat_map(|n| n.parameters())
-    }
-    //pub fn parameters(&self) -> [Value; N * (P + 1)] {
-    //    std::array::from_fn(|i| self.neurons[i / (P + 1)].parameters()[i % (P + 1)].clone())
-    //}
-}
-impl<const P: usize, const N: usize> std::fmt::Debug for Layer<P, N> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "Layer of [{:?}]",
-            self.neurons.iter().map(|n| format!("{:?}", n)).collect::<Vec<_>>().join(", ")
-        )
-    }
+    w: [[Value; P]; N],
+    b: [Value; N],
+    nonlin: bool,
 }
 
 pub struct MLP<const N1: usize, const N2: usize, const N3: usize, const N4: usize> {
@@ -70,10 +44,6 @@ impl<const P: usize, const N: usize> Layer<P, N> {
     pub fn parameters(&self) -> impl Iterator<Item = &Value> {
         self.w.iter().zip(self.b.iter()).flat_map(|(ws, b)| ws.iter().chain(std::iter::once(b)))
     }
-
-    //pub fn parameters(&self) -> [Value; P + 1] {
-    //    std::array::from_fn(|i| self.w.get(i).cloned().unwrap_or_else(|| self.b.clone()))
-    //}
 }
 
 impl<const N1: usize, const N2: usize, const N3: usize, const N4: usize> MLP<N1, N2, N3, N4> {
@@ -91,11 +61,8 @@ impl<const N1: usize, const N2: usize, const N3: usize, const N4: usize> MLP<N1,
     pub fn parameters(&self) -> impl Iterator<Item = &Value> {
         parameters!(self.l1, self.l2, self.l3)
     }
-
-    //pub fn parameters(&self) -> [Value; N * (P + 1)] {
-    //    std::array::from_fn(|i| self.neurons[i / (P + 1)].parameters()[i % (P + 1)].clone())
-    //}
 }
+
 impl<const P: usize, const N: usize> std::fmt::Debug for Layer<P, N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Layer [{}, {}]", if self.nonlin { "ReLU" } else { "Linear" }, N)

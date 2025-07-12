@@ -7,7 +7,6 @@ use std::{
     ops,
     rc::Rc,
 };
-use uuid::Uuid;
 
 #[derive(Clone, Debug)]
 pub struct Value(Rc<RefCell<ValueData>>);
