@@ -1,4 +1,9 @@
 <div align="center">
+  
+This project was originally my [bachelor thesis](https://kth.diva-portal.org/smash/record.jsf?pid=diva2%3A1985858&dswid=8459), the code used is preserved in the [thesis](https://github.com/21st-centuryman/micrograd-rs/tree/thesis) branch.
+
+</div>
+<div align="center">
 
 ## Micrograd
 [![RUST](https://img.shields.io/badge/rust-f74c00.svg?style=for-the-badge&logoColor=white&logo=rust)]()
