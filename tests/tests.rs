@@ -4,7 +4,6 @@ This is a test to make sure that the tests in the examples pass.
 ----------------------------------------------------------------------------------
 */
 
-use kdam::{tqdm, BarExt};
 use micrograd::engine::{Activations, Value};
 use micrograd::nn::{mlp, Layer};
 
@@ -128,8 +127,6 @@ fn make_moons() {
     }
 
     let range = 150;
-    let mut pb = tqdm!(total = range);
-    let _ = pb.refresh();
     let mut total_loss: Value = Value::from(0.0);
     // initalized so the checker isnt giving me errors
     for k in 0..range {
@@ -147,9 +144,6 @@ fn make_moons() {
             let delta = learning_rate * *p.grad.borrow();
             *p.data.borrow_mut() -= delta;
         }
-
-        pb.set_description(format!("Loss {:.3}", total_loss.data.borrow()));
-        let _ = pb.update(1);
     }
     assert_eq!(format!("{:.3}", total_loss.data()), "0.01");
 }
