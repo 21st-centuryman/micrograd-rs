@@ -105,10 +105,6 @@ impl Value {
         from_fn(|i| from_fn(|j| &a[i][j] + &b[i][j]))
     }
 
-    pub fn matmul<const P: usize, const N: usize>(a: &[[Value; P]; N], b: &[Value; P]) -> [Value; N] {
-        from_fn(|i| a[i].iter().zip(b.iter()).map(|(a, b)| a * b).reduce(|a, b| a + b).unwrap())
-    }
-
     pub fn matmul_add<const P: usize, const N: usize>(a: &[[Value; P]; N], b: &[Value; P], c: &[Value; N]) -> [Value; N] {
         from_fn(|i| &a[i].iter().zip(b.iter()).map(|(a, b)| a * b).reduce(|a, b| a + b).unwrap() + &c[i])
     }
