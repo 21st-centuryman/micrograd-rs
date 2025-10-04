@@ -9,8 +9,8 @@ use std::{
     rc::Rc,
 };
 
-#[derive(Clone, Debug)]
-pub struct Value(Rc<RefCell<ValueData>>);
+#[derive(Clone)]
+pub struct Value(Rc<ValueData>);
 
 pub struct ValueData {
     pub data: RefCell<f32>,
