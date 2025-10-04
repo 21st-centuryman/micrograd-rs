@@ -145,5 +145,5 @@ fn make_moons() {
             *p.data.borrow_mut() -= delta;
         }
     }
-    assert_eq!(format!("{:.3}", total_loss.data()), "0.01");
+    assert_eq!(format!("{:.2}", total_loss.data()), "0.01");
 }
