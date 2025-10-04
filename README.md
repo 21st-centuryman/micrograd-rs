@@ -1,4 +1,9 @@
 <div align="center">
+  
+This project was originally my [bachelor thesis](https://kth.diva-portal.org/smash/record.jsf?pid=diva2%3A1985858&dswid=8459), the code used is preserved in the [thesis](https://github.com/21st-centuryman/micrograd-rs/tree/thesis) branch.
+
+</div>
+<div align="center">
 
 ## Micrograd
 [![RUST](https://img.shields.io/badge/rust-f74c00.svg?style=for-the-badge&logoColor=white&logo=rust)]()
@@ -10,7 +15,7 @@
 </div>
 
 ## ⇁  Welcome
-This is a thesis project to rewrite the [micrograd](https://github.com/karpathy/micrograd) framework by Andrej Karpathy to Rust. The purpose of this thesis is to discuss the properties of the Rust programming language and if they are suitable or necessary for large language models and at which stages they might or might not be applicable. This thesis is planned to be presented in spring of 2025.
+This is a thesis project to rewrite the [micrograd](https://github.com/karpathy/micrograd) framework by Andrej Karpathy to Rust. The purpose of this thesis is to discuss memory allocation of micrograd when rewritten in the Rust programming language. I looked over the limitations of writing the project similarly to Rust and how it can be improved to focus on stack allocation (which I will implement in the micrograd_v2). The report will be added to this project once it is published.
 
 ## ⇁  Example usage
 ```rs
@@ -28,7 +33,7 @@ let mut g = &f / &Value::from(2.0);
 g = g + &Value::from(10.0) / &f;
 println!("{:.4}", g.borrow().data); // prints 24.7041
 g.backward();
-println!("{:.4}", a.borrow().grad); // print 145.7755
+println!("{:.4}", a.borrow().grad); // print 138.8338
 println!("{:.4}", b.borrow().grad); // print 645.5773
 ```
 
