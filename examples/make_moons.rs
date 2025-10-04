@@ -1,29 +1,32 @@
 use csv;
-use kdam::{tqdm, BarExt};
-use micrograd::engine::Value;
+use kdam::{BarExt, tqdm};
+use micrograd::engine::{Activations, Value};
 //use micrograd::mlp;
-use micrograd::nn::MLP;
+use micrograd::nn::{Layer, mlp};
+
+// Initialize model size
+mlp!(4);
 
 fn main() {
-    let (x, y): (Vec<[f64; 2]>, Vec<f64>) = csv::ReaderBuilder::new()
-        .from_path("./datasets/make_moons.csv")
+    let (x, y): (Vec<[f32; 2]>, Vec<f32>) = csv::ReaderBuilder::new()
+        .from_path("./datasets/make_moons/make_moons.csv")
         .unwrap()
         .records()
         .map(|r| {
             let record = r.unwrap();
             let x_val = [
-                record.get(0).unwrap().parse::<f64>().unwrap(),
-                record.get(1).unwrap().parse::<f64>().unwrap(),
+                record.get(0).unwrap().parse::<f32>().unwrap(),
+                record.get(1).unwrap().parse::<f32>().unwrap(),
             ];
-            let y_val = record.get(2).unwrap().parse::<f64>().unwrap();
+            let y_val = record.get(2).unwrap().parse::<f32>().unwrap();
             (x_val, y_val)
         })
         .unzip(); // Splits into two vectors
 
-    let model: MLP<2, 16, 16, 1> = MLP::new();
+    let model: MLP<2, 16, 16, 1> = MLP::new(Activations::Relu, Activations::Relu, Activations::Linear);
     //let model = mlp!(2, 16, 16, 1);
 
-    fn loss(xs: &[[f64; 2]], ys: &[f64], model: &MLP<2, 16, 16, 1>) -> Value {
+    fn loss(xs: &[[f32; 2]], ys: &[f32], model: &MLP<2, 16, 16, 1>) -> Value {
         let inputs: Vec<Vec<Value>> = xs.iter().map(|xrow| vec![Value::from(xrow[0]), Value::from(xrow[1])]).collect();
 
         // forward the model to get scores
@@ -40,10 +43,10 @@ fn main() {
             .zip(&scores)
             .map(|(yi, scorei)| (Value::from(1.0) + &Value::from(-yi) * scorei).relu())
             .collect();
-        let n: f64 = (&losses).len() as f64;
+        let n: f32 = (&losses).len() as f32;
         let data_loss: Value = losses.into_iter().sum::<Value>() / Value::from(n);
 
-        let alpha: f64 = 0.0001;
+        let alpha: f32 = 0.0001;
         let reg_loss: Value = Value::from(alpha) * model.parameters().map(|p| p * p).into_iter().sum::<Value>();
         let total_loss = data_loss + reg_loss;
 
@@ -63,13 +66,13 @@ fn main() {
         total_loss.backward();
 
         // update (sgd)
-        let learning_rate = 1.0 - 0.9 * (k as f64) / (range as f64);
+        let learning_rate = 1.0 - 0.9 * (k as f32) / (range as f32);
         for p in model.parameters() {
-            let delta = learning_rate * p.borrow().grad;
-            p.borrow_mut().data -= delta;
+            let delta = learning_rate * *p.grad.borrow();
+            *p.data.borrow_mut() -= delta;
         }
 
-        pb.set_description(format!("Loss {:.3}", total_loss.borrow().data));
+        pb.set_description(format!("Loss {:.3}", total_loss.data.borrow()));
         let _ = pb.update(1);
     }
 }

@@ -3,9 +3,12 @@
 Now for some actual Machine Learning
 --------------------------------
 */
-use kdam::{tqdm, BarExt};
-use micrograd::engine::Value;
-use micrograd::nn::MLP;
+use kdam::{BarExt, tqdm};
+use micrograd::engine::{Activations, Value};
+use micrograd::nn::{Layer, mlp};
+
+// Initialize model size
+mlp!(4);
 
 fn main() {
     // Variables
@@ -15,7 +18,7 @@ fn main() {
     let _ = pb.refresh();
     let ys = vec![1.0, -1.0, -1.0, 1.0]; // desired targets
 
-    let n: MLP<3, 4, 4, 1> = MLP::new();
+    let n: MLP<3, 4, 4, 1> = MLP::new(Activations::Relu, Activations::Relu, Activations::Linear);
 
     let xs = vec![vec![2.0, 3.0, -1.0], vec![3.0, -1.0, 0.5], vec![0.5, 1.0, 1.0], vec![1.0, 1.0, -1.0]];
 

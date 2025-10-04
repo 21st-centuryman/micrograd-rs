@@ -4,8 +4,8 @@ This is a test to make sure that the tests in the examples pass.
 ----------------------------------------------------------------------------------
 */
 
-use micrograd::engine::Value;
-use micrograd::nn::MLP;
+use micrograd::engine::{Activations, Value};
+use micrograd::nn::{Layer, mlp};
 
 #[test]
 pub fn test_usage() {
@@ -25,20 +25,21 @@ pub fn test_usage() {
     let mut g = &f / &Value::from(2.0);
     g = g + &Value::from(10.0) / &f;
 
-    assert_eq!(format!("{:.4}", g.borrow().data), "24.7041");
+    assert_eq!(format!("{:.4}", g.data.borrow()), "24.7041");
     g.backward();
-    assert_eq!(format!("{:.4}", a.borrow().grad), "138.8338");
-    assert_eq!(format!("{:.4}", b.borrow().grad), "645.5773");
+    assert_eq!(format!("{:.4}", a.grad.borrow()), "138.8338");
+    assert_eq!(format!("{:.4}", b.grad.borrow()), "645.5773");
 }
 
 #[test]
 fn train() {
     // Variables
+    mlp!(4);
     let range = 2000;
     let adjust = -0.01;
     let ys = vec![1.0, -1.0, -1.0, 1.0]; // desired targets
 
-    let n: MLP<3, 4, 4, 1> = MLP::new();
+    let n: MLP<3, 4, 4, 1> = MLP::new(Activations::Relu, Activations::Relu, Activations::Linear);
 
     let xs = vec![vec![2.0, 3.0, -1.0], vec![3.0, -1.0, 0.5], vec![0.5, 1.0, 1.0], vec![1.0, 1.0, -1.0]];
 
