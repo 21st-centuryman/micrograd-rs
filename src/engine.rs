@@ -7,6 +7,7 @@ use std::{
     ops,
     rc::Rc,
 };
+use uuid::Uuid;
 
 #[derive(Clone, Debug)]
 pub struct Value(Rc<RefCell<ValueData>>);
@@ -27,6 +28,7 @@ impl ValueData {
             op,
             prev,
             _backward,
+            id: Uuid::new_v4(),
         }
     }
 }
