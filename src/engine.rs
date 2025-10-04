@@ -207,15 +207,16 @@ impl<T: Into<f64>> From<T> for Value {
     }
 }
 
-impl PartialEq for Value {
+// In an ideal world we use the UUID package. But for this thesis I want to minimize the amount of packages used
+impl PartialEq for ValueData {
     fn eq(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.0, &other.0)
     }
 }
 
-impl Eq for Value {}
+impl Eq for ValueData {}
 
-impl Hash for Value {
+impl Hash for ValueData {
     fn hash<H: Hasher>(&self, state: &mut H) {
         Rc::as_ptr(&self.0).hash(state);
     }
