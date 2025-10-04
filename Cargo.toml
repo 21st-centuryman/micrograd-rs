@@ -5,7 +5,10 @@ edition = "2021"
 
 [dependencies]
 rand = "0.8.5"
-uuid = { version = "1.16.0", features = ["v4"] }
+mlp_macro = { path = "./mlp_macro"}
 # For examples
 kdam = "0.5.2"
 petgraph = "0.7.1"
+csv = "1.3.1"
+poloto = "19.1.2"
+rust-mnist = "0.2.0"

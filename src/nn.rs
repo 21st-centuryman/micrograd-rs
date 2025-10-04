@@ -1,107 +1,63 @@
-use crate::engine::Value;
+use crate::engine::{Activations, Value};
 use rand::Rng;
+use std::{
+    array::from_fn,
+    fmt::{Debug, Formatter, Result},
+    iter::once,
+};
 
-pub struct Neuron {
-    w: Vec<Value>,
-    b: Value,
-    nonlin: bool,
+#[macro_export]
+macro_rules! mlp {
+    ($layers:literal) => {
+        mlp_macro::generate_mlp!($layers);
+    };
 }
 
-impl Neuron {
-    pub fn new(nin: usize, nonlin: bool) -> Neuron {
-        Neuron {
-            w: (0..nin).map(|_| Value::from(rand::thread_rng().gen_range(-1.0..=1.0))).collect(),
-            b: Value::from(0.0), // Removing the bias
+// Structs
+pub struct Layer<const P: usize, const N: usize> {
+    w: [[Value; P]; N],
+    b: [Value; N],
+    nonlin: Activations,
+}
+
+// Implementation
+impl<const P: usize, const N: usize> Layer<P, N> {
+    pub fn new(nonlin: Activations) -> Layer<P, N> {
+        Self {
+            w: from_fn(|_| from_fn(|_| Value::from(rand::thread_rng().gen_range(-1.0..=1.0)))),
+            b: from_fn(|_| Value::from(0.0)),
             nonlin,
         }
     }
 
-    pub fn forward(&self, x: &Vec<Value>) -> Value {
-        let out = (std::iter::zip(&self.w, x)
-            .map(|(wi, xi)| wi * xi)
-            .collect::<Vec<_>>()
-            .into_iter()
-            .reduce(|a, b| a + b)
-            .unwrap())
-            + self.b.clone();
-        return if self.nonlin { out.relu() } else { out };
+    pub fn forward(&self, x: &[Value; P]) -> [Value; N] {
+        Value::activate(Value::matmul_add::<P, N>(&self.w, &x, &self.b), &self.nonlin)
     }
 
-    pub fn parameters(&self) -> Vec<Value> {
-        [self.w.clone(), vec![self.b.clone()]].concat()
+    pub fn parameters(&self) -> impl Iterator<Item = &Value> {
+        self.w.iter().zip(self.b.iter()).flat_map(|(ws, b)| ws.iter().chain(once(b)))
     }
 }
 
-impl std::fmt::Debug for Neuron {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}Neuron({})", if self.nonlin { "ReLU" } else { "Linear" }, self.w.len())
-    }
-}
-
-pub struct Layer {
-    neurons: Vec<Neuron>,
-}
-
-impl Layer {
-    pub fn new(nin: usize, nout: usize, nonlin: bool) -> Layer {
-        Layer {
-            neurons: (0..nout).map(|_| Neuron::new(nin, nonlin)).collect(),
-        }
-    }
-
-    pub fn forward(&self, x: &Vec<Value>) -> Vec<Value> {
-        self.neurons.iter().map(|i| i.forward(x)).collect::<Vec<_>>()
-    }
-
-    pub fn parameters(&self) -> Vec<Value> {
-        self.neurons.iter().flat_map(|neuron| neuron.parameters()).collect()
-    }
-}
-
-impl std::fmt::Debug for Layer {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+// Formater for print out
+impl<const P: usize, const N: usize> Debug for Layer<P, N> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(
             f,
-            "Layer of [{:?}]",
-            self.neurons.iter().map(|n| format!("{:?}", n)).collect::<Vec<_>>().join(", ")
+            "Layer [{}, {}]",
+            match self.nonlin {
+                Activations::Relu => "ReLU",
+                Activations::Tanh => "Tanh",
+                Activations::Softmax => "Softmax",
+                Activations::Linear => "Linear",
+            },
+            N
         )
     }
 }
-
-pub struct MLP {
-    layers: Vec<Layer>,
-}
-
-impl MLP {
-    pub fn new(nin: usize, nouts: Vec<usize>) -> MLP {
-        MLP {
-            layers: (0..nouts.len())
-                .map(|i| {
-                    Layer::new(
-                        vec![nin].into_iter().chain(nouts.clone().into_iter()).collect::<Vec<_>>()[i],
-                        nouts[i],
-                        i != nouts.len() - 1,
-                    )
-                })
-                .collect(),
-        }
-    }
-
-    pub fn forward(&self, x: Vec<Value>) -> Vec<Value> {
-        self.layers.iter().fold(x, |x, layer| layer.forward(&x))
-    }
-
-    pub fn parameters(&self) -> Vec<Value> {
-        self.layers.iter().flat_map(|layer| layer.parameters()).collect()
-    }
-}
-
-impl std::fmt::Debug for MLP {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "MLP of [{}]",
-            self.layers.iter().map(|l| format!("{:?}", l)).collect::<Vec<_>>().join(", ")
-        )
-    }
-}
+//impl<const N1: usize, const N2: usize, const N3: usize, const N4: usize> Debug for MLP<N1, N2, N3, N4> {
+//    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+//        write!(f, "MLP of [{:?}, {:?}, {:?}]", self.l1, self.l2, self.l3)
+//    }
+//}
+pub use mlp;
