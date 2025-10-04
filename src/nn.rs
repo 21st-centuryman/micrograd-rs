@@ -48,7 +48,6 @@ impl<const P: usize, const N: usize> Debug for Layer<P, N> {
             match self.nonlin {
                 Activations::Relu => "ReLU",
                 Activations::Tanh => "Tanh",
-                Activations::Softmax => "Softmax",
                 Activations::Linear => "Linear",
             },
             N
