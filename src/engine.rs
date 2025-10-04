@@ -8,6 +8,7 @@ use std::{
     ops,
     rc::Rc,
 };
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct Value(Rc<ValueData>);
@@ -35,6 +36,7 @@ impl ValueData {
             op,
             prev,
             _backward,
+            id: Uuid::new_v4(),
         }
     }
 }
