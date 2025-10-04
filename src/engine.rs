@@ -23,7 +23,6 @@ pub struct ValueData {
 pub enum Activations {
     Linear,
     Relu,
-    Softmax,
     Tanh,
 }
 
@@ -37,6 +36,86 @@ impl ValueData {
             _backward,
         }
     }
+}
+
+macro_rules! define_ops {
+    (
+        $(binary $bname:ident, $bsym:expr => |$a:ident, $b:ident| $bfwd:expr, |$out:ident| $bbwd:block;)*
+        $(unary $uname:ident, $usym:expr => |$x:ident| $ufwd:expr, |$outu:ident| $ubwd:block;)*
+    ) => {
+        $(
+            impl Value {
+                pub fn $bname($a: &Value, $b: &Value) -> Value {
+                    let _backward: fn(&Value) = |$out| $bbwd;
+                    Value::new(ValueData::new(
+                        $bfwd,
+                        Some($bsym),
+                        vec![$a.clone(), $b.clone()],
+                        Some(_backward),
+                    ))
+                }
+            }
+        )*
+        $(
+            impl Value {
+                pub fn $uname(&self) -> Value {
+                    let _backward: fn(&Value) = |$outu| $ubwd;
+                    Value::new(ValueData::new(
+                        { let $x = self; $ufwd },
+                        Some($usym),
+                        vec![self.clone()],
+                        Some(_backward),
+                    ))
+                }
+            }
+        )*
+    };
+}
+
+define_ops! {
+    binary add, "+" => |a,b| *a.0.data.borrow() + *b.0.data.borrow(), |out| {
+        *out.0.prev[0].0.grad.borrow_mut() += *out.0.grad.borrow();
+        *out.0.prev[1].0.grad.borrow_mut() += *out.0.grad.borrow();
+    };
+    binary mul, "*" => |a,b| *a.0.data.borrow() * *b.0.data.borrow(), |out| {
+        let a_data = *out.0.prev[0].0.data.borrow();
+        let b_data = *out.0.prev[1].0.data.borrow();
+        *out.0.prev[0].0.grad.borrow_mut() += b_data * *out.0.grad.borrow();
+        *out.0.prev[1].0.grad.borrow_mut() += a_data * *out.0.grad.borrow();
+    };
+    binary pow_op, "^" => |a,b| a.0.data.borrow().powf(*b.0.data.borrow()), |out| {
+        let base = *out.0.prev[0].0.data.borrow();
+        let exp  = *out.0.prev[1].0.data.borrow();
+        let gout = *out.0.grad.borrow();
+        let y    = *out.0.data.borrow(); // y = base^exp
+
+        // ∂y/∂a = b · a^(b-1)
+        *out.0.prev[0].0.grad.borrow_mut() += exp * base.powf(exp - 1.0) * gout;
+
+        // ∂y/∂b = a^b · ln(a)   (valid for base > 0)
+        // If base <= 0.0, ln(base) is undefined; leaving it as-is will propagate NaN, which matches powf semantics.
+        *out.0.prev[1].0.grad.borrow_mut() += y * base.ln() * gout;
+    };
+    unary powneg, "^-" => |x| 1.0 / *x.0.data.borrow(), |out| {
+        let base = &out.0.prev[0];
+        let mut grad = base.0.grad.borrow_mut();
+        *grad += -(1.0 / (*base.0.data.borrow()).powf(2.0)) * *out.0.grad.borrow();
+    };
+    unary exp, "exp" => |x| x.0.data.borrow().exp(), |out| {
+        *out.0.prev[0].0.grad.borrow_mut() += *out.0.data.borrow() * *out.0.grad.borrow();
+    };
+    unary ln, "log" => |x| x.0.data.borrow().ln(), |out| {
+        let xv = *out.0.prev[0].0.data.borrow();
+        *out.0.prev[0].0.grad.borrow_mut() += *out.0.grad.borrow() / xv;
+    };
+    unary tanh, "tanh" => |x| x.0.data.borrow().tanh(), |out| {
+        let y = out.0.prev[0].0.data.borrow().tanh();
+        *out.0.prev[0].0.grad.borrow_mut() += (1.0 - y*y) * *out.0.grad.borrow();
+    };
+    unary relu, "ReLU" => |x| x.0.data.borrow().max(0.0), |out| {
+        let g = if *out.0.data.borrow() > 0.0 { *out.0.grad.borrow() } else { 0.0 };
+        *out.0.prev[0].0.grad.borrow_mut() += g;
+    };
 }
 
 impl Value {
@@ -66,35 +145,18 @@ impl Value {
         *data.borrow_mut() += val * *grad.borrow();
     }
 
-    pub fn add(a: &Value, b: &Value) -> Self {
-        let _backward: fn(value: &Value) = |out| {
-            *out.0.prev[0].0.grad.borrow_mut() += *out.0.grad.borrow();
-            *out.0.prev[1].0.grad.borrow_mut() += *out.0.grad.borrow();
-        };
-
-        Value::new(ValueData::new(
-            *a.0.data.borrow() + *b.0.data.borrow(),
-            Some("+"),
-            vec![a.clone(), b.clone()],
-            Some(_backward),
-        ))
+    pub fn sub(a: &Value, b: &Value) -> Self {
+        Value::add(a, &Value::mul(b, &Value::from(-1.0)))
     }
 
-    pub fn mul(a: &Value, b: &Value) -> Self {
-        let _backward: fn(value: &Value) = |out| {
-            let a_data = *out.prev[0].data.borrow();
-            let b_data = *out.prev[1].data.borrow();
-            *out.prev[0].grad.borrow_mut() += b_data * *out.0.grad.borrow();
-            *out.prev[1].grad.borrow_mut() += a_data * *out.0.grad.borrow();
-        };
-
-        Value::new(ValueData::new(
-            *a.data.borrow() * *b.data.borrow(),
-            Some("*"),
-            vec![a.clone(), b.clone()],
-            Some(_backward),
-        ))
+    pub fn div(a: &Value, b: &Value) -> Self {
+        Value::mul(a, &b.powneg())
     }
+
+    pub fn pow(&self, b: &Value) -> Value {
+        Value::pow_op(self, b)
+    }
+
     pub fn matmul<const M: usize, const N: usize>(a: &[[Value; N]; M], b: &[Value; N]) -> [Value; M] {
         std::array::from_fn(|i| a[i].iter().zip(b.iter()).map(|(a, b)| a * b).reduce(|a, b| a + b).unwrap())
     }
@@ -112,58 +174,7 @@ impl Value {
             Activations::Linear => a,
             Activations::Tanh => from_fn(|i| a[i].tanh()),
             Activations::Relu => from_fn(|i| a[i].relu()),
-            Activations::Softmax => Value::softmax(&a),
         }
-    }
-
-    pub fn pow(&self, other: &Value) -> Value {
-        let _backward: fn(value: &Value) = |out| {
-            let exponent_value = *out.prev[1].data.borrow();
-            *out.prev[0].grad.borrow_mut() += exponent_value * (*out.prev[0].data.borrow()).powf(exponent_value - 1.0) * *out.grad.borrow();
-        };
-
-        Value::new(ValueData::new(
-            self.data.borrow().powf(*other.data.borrow()),
-            Some("^"),
-            vec![self.clone(), other.clone()],
-            Some(_backward),
-        ))
-    }
-
-    // Negative power ie x^-1, this will allow us to divide
-    pub fn powneg(&self) -> Value {
-        let _backward: fn(value: &Value) = |out| {
-            let base = &out.0.prev[0];
-            let mut grad = base.0.grad.borrow_mut();
-            *grad += -(1.0 / (*base.0.data.borrow()).powf(2.0)) * *out.0.grad.borrow();
-        };
-
-        Value::new(ValueData::new(1.0 / *self.data.borrow(), Some("^"), vec![self.clone()], Some(_backward)))
-    }
-
-    pub fn exp(&self) -> Value {
-        let _backward: fn(value: &Value) = |out| {
-            *out.prev[0].grad.borrow_mut() += *out.0.data.borrow() * *out.0.grad.borrow();
-        };
-        Value::new(ValueData::new(
-            self.0.data.borrow().exp(),
-            Some("exp"),
-            vec![self.clone()],
-            Some(_backward),
-        ))
-    }
-
-    pub fn ln(&self) -> Value {
-        let _backward: fn(value: &Value) = |out| {
-            let x = *out.prev[0].data.borrow();
-            *out.prev[0].grad.borrow_mut() += *out.0.grad.borrow() / x;
-        };
-        Value::new(ValueData::new(
-            self.0.data.borrow().ln(),
-            Some("log"),
-            vec![self.clone()],
-            Some(_backward),
-        ))
     }
 
     pub fn sum<I: Iterator<Item = Self>>(mut iter: I) -> Self {
@@ -199,67 +210,6 @@ impl Value {
             });
             topo.push(self.clone());
         }
-    }
-
-    /*
-    ----------------------------------------------------------------------------------
-    Activation functions
-    ----------------------------------------------------------------------------------
-    */
-
-    pub fn tanh(&self) -> Value {
-        let _backward: fn(value: &Value) = |out| {
-            let out1 = out.prev[0].0.data.borrow().tanh();
-            let mut outue = out.prev[0].grad.borrow_mut();
-            *outue += (1.0 - out1.powf(2.0)) * *out.0.grad.borrow();
-        };
-
-        Value::new(ValueData::new(
-            self.0.data.borrow().tanh(),
-            Some("tanh"),
-            vec![self.clone()],
-            Some(_backward),
-        ))
-    }
-
-    pub fn relu(&self) -> Value {
-        let _backward: fn(&Value) = |out| {
-            let cond = *out.0.data.borrow() > 0.0;
-            let grad = if cond { *out.0.grad.borrow() } else { 0.0 };
-            *out.prev[0].grad.borrow_mut() += grad;
-        };
-
-        Value::new(ValueData::new(
-            self.0.data.borrow().max(0.0),
-            Some("ReLU"),
-            vec![self.clone()],
-            Some(_backward),
-        ))
-    }
-
-    pub fn softmax<const I: usize>(a: &[Value; I]) -> [Value; I] {
-        let _backward: fn(value: &Value) = |out| {
-            let probs: Vec<f32> = out
-                .prev
-                .iter()
-                .map(|v| (*v.data.borrow() - f32::MAX).exp() / out.prev.iter().map(|v| (*v.data.borrow() - f32::MAX).exp()).sum::<f32>())
-                .collect();
-
-            let y_i = *out.0.data.borrow();
-            let g_i = *out.0.grad.borrow();
-
-            for (j, logit) in out.prev.iter().enumerate() {
-                let y_j = probs[j];
-                let partial = if (y_j - y_i).abs() < 1e-12 { y_i * (1.0 - y_j) } else { -y_i * y_j };
-                *logit.grad.borrow_mut() += partial * g_i;
-            }
-        };
-
-        let summed: f32 = a.iter().map(|x| (x.data() - f32::MAX).exp()).sum();
-        from_fn(|i| {
-            let val = (a[i].data() - f32::MAX).exp() / summed;
-            Value::new(ValueData::new(val, Some("softmax"), a.to_vec(), Some(_backward)))
-        })
     }
 }
 
@@ -304,83 +254,37 @@ impl Hash for Value {
 
 /*
 ------------------------------------------------------------------------------------------------
-This allows us to use Value + Value instead of Value.add(Value), just so it works like micrograd
+This allows us to use Value + Value instead of Value.add(Value), it works just like micrograd
 ------------------------------------------------------------------------------------------------
 */
-impl ops::Add<Value> for Value {
-    type Output = Value;
-
-    fn add(self, other: Value) -> Self::Output {
-        Value::add(&self, &other)
+macro_rules! impl_ops {
+    ( $( $Trait:ident::$method:ident ),* $(,)? ) => {
+        $(
+            impl ::std::ops::$Trait<Value> for Value {
+                type Output = Value;
+                fn $method(self, other: Value) -> Self::Output {
+                    Value::$method(&self, &other)
+                }
+            }
+            impl<'a,'b> ::std::ops::$Trait<&'b Value> for &'a Value {
+                type Output = Value;
+                fn $method(self, other: &'b Value) -> Self::Output {
+                    Value::$method(self, other)
+                }
+            }
+        )*
     }
 }
+impl_ops!(Add::add, Sub::sub, Mul::mul, Div::div);
 
-impl<'a, 'b> ops::Add<&'b Value> for &'a Value {
+impl ::std::ops::Neg for Value {
     type Output = Value;
-    fn add(self, other: &'b Value) -> Self::Output {
-        Value::add(self, other)
-    }
-}
-
-impl ops::Sub<Value> for Value {
-    type Output = Value;
-
-    fn sub(self, other: Value) -> Self::Output {
-        Value::add(&self, &(-other))
-    }
-}
-
-impl<'a, 'b> ops::Sub<&'b Value> for &'a Value {
-    type Output = Value;
-
-    fn sub(self, other: &'b Value) -> Self::Output {
-        Value::add(self, &(-other))
-    }
-}
-
-impl ops::Mul<Value> for Value {
-    type Output = Value;
-
-    fn mul(self, other: Value) -> Self::Output {
-        Value::mul(&self, &other)
-    }
-}
-
-impl<'a, 'b> ops::Mul<&'b Value> for &'a Value {
-    type Output = Value;
-
-    fn mul(self, other: &'b Value) -> Self::Output {
-        Value::mul(self, other)
-    }
-}
-
-impl ops::Div<Value> for Value {
-    type Output = Value;
-
-    fn div(self, other: Value) -> Self::Output {
-        Value::mul(&self, &other.powneg())
-    }
-}
-
-impl<'a, 'b> ops::Div<&'b Value> for &'a Value {
-    type Output = Value;
-
-    fn div(self, other: &'b Value) -> Self::Output {
-        Value::mul(self, &other.powneg())
-    }
-}
-
-impl ops::Neg for Value {
-    type Output = Value;
-
     fn neg(self) -> Self::Output {
         Value::mul(&self, &Value::from(-1.0))
     }
 }
-
-impl<'a> ops::Neg for &'a Value {
+impl<'a> ::std::ops::Neg for &'a Value {
     type Output = Value;
-
     fn neg(self) -> Self::Output {
         Value::mul(self, &Value::from(-1.0))
     }
