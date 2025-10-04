@@ -1,8 +1,8 @@
 use csv;
-use kdam::{BarExt, tqdm};
+use kdam::{tqdm, BarExt};
 use micrograd::engine::{Activations, Value};
 //use micrograd::mlp;
-use micrograd::nn::{Layer, mlp};
+use micrograd::nn::{mlp, Layer};
 
 // Initialize model size
 mlp!(4);

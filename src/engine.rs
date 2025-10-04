@@ -20,7 +20,6 @@ pub struct ValueData {
     pub _backward: Option<fn(value: &Value)>,
 }
 
-#[derive(PartialEq)]
 pub enum Activations {
     Linear,
     Relu,

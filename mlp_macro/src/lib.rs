@@ -11,12 +11,9 @@ pub fn generate_mlp(input: TokenStream) -> TokenStream {
     };
 
     if num_sizes < 2 {
-        return syn::Error::new(
-            n_lit.span(),
-            "At least 2 sizes required (input and output); this generates num_sizes-1 layers",
-        )
-        .to_compile_error()
-        .into();
+        return syn::Error::new(n_lit.span(), "At least 2 sizes required (input and output)")
+            .to_compile_error()
+            .into();
     }
 
     let span = proc_macro2::Span::call_site();
@@ -57,6 +54,24 @@ pub fn generate_mlp(input: TokenStream) -> TokenStream {
 
     let last_gen = &gens[num_sizes - 1];
 
+    let first_layer = &layer_names[0];
+    let first_write = quote! { write!(f, "{:?}", self.#first_layer)?; };
+    let rest_writes = layer_names[1..].iter().map(|layer| {
+        quote! { write!(f, ", {:?}", self.#layer)?; }
+    });
+
+    let debug_impl = quote! {
+        impl< #( #gens_with_const ),* > std::fmt::Debug for MLP< #( #gens ),* > {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "MLP of [")?;
+                #first_write
+                #( #rest_writes )*
+                write!(f, "]")?;
+                Ok(())
+            }
+        }
+    };
+
     quote! {
         pub struct MLP< #( #gens_with_const ),* > {
             #( #layer_fields ),*
@@ -75,6 +90,9 @@ pub fn generate_mlp(input: TokenStream) -> TokenStream {
                 #params_expr
             }
         }
+
+        // Generated Debug impl
+        #debug_impl
     }
     .into()
 }
