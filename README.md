@@ -57,7 +57,8 @@ draw_dot(y);
 
 ## ⇁  Training a neual net
 
-We are also do do more advanced neural nets such as a 2-layer MLP binary classifier, the code for the make moons implementation is in the examples folder.
+We are also able to create more advanced neural nets, such as a 2-layer MLP binary classifier. 
+The code for the make moons implementation is in the examples folder.
 
 ![moons](assets/micrograd.gif)
 
