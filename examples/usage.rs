@@ -17,10 +17,10 @@ fn main() {
     let mut g = &f / &Value::from(2.0);
     g = g + &Value::from(10.0) / &f;
 
-    println!("{:.4}", g.borrow().data); // prints 24.7041, the outcome of this forward pass
+    println!("{:.4}", g.data.borrow()); // prints 24.7041, the outcome of this forward pass
     g.backward();
-    println!("{:.4}", a.borrow().grad); // print 138.8338, i.e. the numerical value of dg/da
-    println!("{:.4}", b.borrow().grad); // print 645.5773, i.e. the numerical value of dg/db
+    println!("{:.4}", a.grad.borrow()); // print 138.8338, i.e. the numerical value of dg/da
+    println!("{:.4}", b.grad.borrow()); // print 645.5773, i.e. the numerical value of dg/db
 
     println!("a is {:?}", a);
     println!("b is {:?}", b);
