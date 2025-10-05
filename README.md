@@ -55,6 +55,12 @@ draw_dot(y);
 
 ![2d neuron](assets/graph.svg)
 
+## ⇁  Training a neual net
+
+We are also do do more advanced neural nets such as a 2-layer MLP binary classifier, the code for the make moons implementation is in the examples folder.
+
+![moons](assets/micrograd.gif)
+
 ## ⇁  Running tests
 
 All tests are in the `tests` folder. You can run them with the following command.
