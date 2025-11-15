@@ -54,9 +54,5 @@ impl<const P: usize, const N: usize> Debug for Layer<P, N> {
         )
     }
 }
-//impl<const N1: usize, const N2: usize, const N3: usize, const N4: usize> Debug for MLP<N1, N2, N3, N4> {
-//    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-//        write!(f, "MLP of [{:?}, {:?}, {:?}]", self.l1, self.l2, self.l3)
-//    }
-//}
+
 pub use mlp;
