@@ -87,13 +87,8 @@ define_ops! {
         let base = *out.0.prev[0].0.data.borrow();
         let exp  = *out.0.prev[1].0.data.borrow();
         let gout = *out.0.grad.borrow();
-        let y    = *out.0.data.borrow(); // y = base^exp
-
-        // ∂y/∂a = b · a^(b-1)
+        let y    = *out.0.data.borrow(); 
         *out.0.prev[0].0.grad.borrow_mut() += exp * base.powf(exp - 1.0) * gout;
-
-        // ∂y/∂b = a^b · ln(a)   (valid for base > 0)
-        // If base <= 0.0, ln(base) is undefined; leaving it as-is will propagate NaN, which matches powf semantics.
         *out.0.prev[1].0.grad.borrow_mut() += y * base.ln() * gout;
     };
     unary powneg, "^-" => |x| 1.0 / *x.0.data.borrow(), |out| {
