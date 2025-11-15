@@ -153,7 +153,7 @@ impl Value {
     }
 
     pub fn matmul<const M: usize, const N: usize>(a: &[[Value; N]; M], b: &[Value; N]) -> [Value; M] {
-        std::array::from_fn(|i| a[i].iter().zip(b.iter()).map(|(a, b)| a * b).reduce(|a, b| a + b).unwrap())
+        from_fn(|i| a[i].iter().zip(b.iter()).map(|(a, b)| a * b).reduce(|a, b| a + b).unwrap())
     }
 
     pub fn matadd<const N: usize, const M: usize>(a: &[[Value; N]; M], b: &[[Value; N]; M]) -> [[Value; N]; M] {
