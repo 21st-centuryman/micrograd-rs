@@ -3,7 +3,8 @@ name = "micrograd"
 version = "0.1.0"
 edition = "2021"
 
- float_literal_f32_fallback = "allow"
+[lints.rust]
+float_literal_f32_fallback = "allow"
 
 [dependencies]
 mlp_macro = { path = "./mlp_macro"}
