@@ -8,7 +8,7 @@ use std::{
 #[macro_export]
 macro_rules! mlp {
     ($layers:literal) => {
-        mlp_macro::generate_mlp!($layers);
+        $crate::generate_mlp!($layers);
     };
 }
 
