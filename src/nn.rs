@@ -1,5 +1,4 @@
 use crate::engine::{Activations, Value};
-use rand::Rng;
 use std::{
     array::from_fn,
     fmt::{Debug, Formatter, Result},
@@ -13,6 +12,22 @@ macro_rules! mlp {
     };
 }
 
+// RNG generator using SplitMix64
+static mut RNG_STATE: u64 = 1337;
+
+fn uniform(a: f32, b: f32) -> f32 {
+    // SAFETY: only called while constructing layers, from one thread,
+    // never from an interrupt handler.
+    let mut z = unsafe {
+        RNG_STATE = RNG_STATE.wrapping_add(0x9E3779B97F4A7C15);
+        RNG_STATE
+    };
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
+    z ^= z >> 31;
+    a + (b - a) * ((z >> 40) as f32 * (1.0 / (1u32 << 24) as f32))
+}
+
 // Structs
 pub struct Layer<const P: usize, const N: usize> {
     w: [[Value; P]; N],
@@ -24,7 +39,7 @@ pub struct Layer<const P: usize, const N: usize> {
 impl<const P: usize, const N: usize> Layer<P, N> {
     pub fn new(nonlin: Activations) -> Layer<P, N> {
         Self {
-            w: from_fn(|_| from_fn(|_| Value::from(rand::thread_rng().gen_range(-1.0..=1.0)))),
+            w: from_fn(|_| from_fn(|_| Value::from(uniform(-1.0, 1.0)))),
             b: from_fn(|_| Value::from(0.0)),
             nonlin,
         }
