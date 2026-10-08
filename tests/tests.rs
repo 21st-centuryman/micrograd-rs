@@ -25,10 +25,10 @@ pub fn test_usage() {
     let mut g = &f / &Value::from(2.0);
     g = g + &Value::from(10.0) / &f;
 
-    assert_eq!(format!("{:.4}", g.data.borrow()), "24.7041");
+    assert_eq!(format!("{:.4}", g.data.get()), "24.7041");
     g.backward();
-    assert_eq!(format!("{:.4}", a.grad.borrow()), "138.8338");
-    assert_eq!(format!("{:.4}", b.grad.borrow()), "645.5773");
+    assert_eq!(format!("{:.4}", a.grad.get()), "138.8338");
+    assert_eq!(format!("{:.4}", b.grad.get()), "645.5773");
 }
 
 #[test]
@@ -141,8 +141,8 @@ fn make_moons() {
         // update (sgd)
         let learning_rate = 1.0 - 0.9 * (k as f32) / (range as f32);
         for p in model.parameters() {
-            let delta = learning_rate * *p.grad.borrow();
-            *p.data.borrow_mut() -= delta;
+            let delta = learning_rate * p.grad.get();
+            p.data.update(|v| v - delta);
         }
     }
     assert!(total_loss.data() < 0.20);

@@ -68,11 +68,11 @@ fn main() {
         // update (sgd)
         let learning_rate = 1.0 - 0.9 * (k as f32) / (range as f32);
         for p in model.parameters() {
-            let delta = learning_rate * *p.grad.borrow();
-            *p.data.borrow_mut() -= delta;
+            let delta = learning_rate * p.grad.get();
+            p.data.update(|v| v - delta);
         }
 
-        pb.set_description(format!("Loss {:.3}", total_loss.data.borrow()));
+        pb.set_description(format!("Loss {:.3}", total_loss.data.get()));
         let _ = pb.update(1);
     }
 }

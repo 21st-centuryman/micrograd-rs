@@ -1,6 +1,6 @@
 use std::{
     array::from_fn,
-    cell::RefCell,
+    cell::Cell,
     collections::HashSet,
     fmt::{Debug, Formatter, Result},
     hash::{Hash, Hasher},
@@ -13,10 +13,10 @@ use std::{
 pub struct Value(Rc<ValueData>);
 
 pub struct ValueData {
-    pub data: RefCell<f32>,
-    pub grad: RefCell<f32>,
+    pub data: Cell<f32>,
+    pub grad: Cell<f32>,
     pub op: Option<&'static str>,
-    pub prev: Vec<Value>,
+    pub prev: [Option<Value>; 2],
     pub _backward: Option<fn(value: &Value)>,
 }
 
@@ -27,10 +27,10 @@ pub enum Activations {
 }
 
 impl ValueData {
-    fn new(data: f32, op: Option<&'static str>, prev: Vec<Value>, _backward: Option<fn(value: &Value)>) -> ValueData {
+    fn new(data: f32, op: Option<&'static str>, prev: [Option<Value>; 2], _backward: Option<fn(value: &Value)>) -> ValueData {
         ValueData {
-            data: RefCell::new(data),
-            grad: RefCell::new(0.0),
+            data: Cell::new(data),
+            grad: Cell::new(0.0),
             op,
             prev,
             _backward,
@@ -50,7 +50,7 @@ macro_rules! define_ops {
                     Value::new(ValueData::new(
                         $bfwd,
                         Some($bsym),
-                        vec![$a.clone(), $b.clone()],
+                        [Some($a.clone()), Some($b.clone())],
                         Some(_backward),
                     ))
                 }
@@ -63,7 +63,7 @@ macro_rules! define_ops {
                     Value::new(ValueData::new(
                         { let $x = self; $ufwd },
                         Some($usym),
-                        vec![self.clone()],
+                        [Some(self.clone()), None],
                         Some(_backward),
                     ))
                 }
@@ -73,43 +73,42 @@ macro_rules! define_ops {
 }
 
 define_ops! {
-    binary add, "+" => |a,b| *a.0.data.borrow() + *b.0.data.borrow(), |out| {
-        *out.0.prev[0].0.grad.borrow_mut() += *out.0.grad.borrow();
-        *out.0.prev[1].0.grad.borrow_mut() += *out.0.grad.borrow();
+    binary add, "+" => |a,b| a.0.data.get() + b.0.data.get(), |out| {
+        out.0.prev[0].as_ref().unwrap().grad.update(|v| v + out.grad.get());
+        out.0.prev[1].as_ref().unwrap().grad.update(|v| v + out.grad.get());
     };
-    binary mul, "*" => |a,b| *a.0.data.borrow() * *b.0.data.borrow(), |out| {
-        let a_data = *out.0.prev[0].0.data.borrow();
-        let b_data = *out.0.prev[1].0.data.borrow();
-        *out.0.prev[0].0.grad.borrow_mut() += b_data * *out.0.grad.borrow();
-        *out.0.prev[1].0.grad.borrow_mut() += a_data * *out.0.grad.borrow();
+    binary mul, "*" => |a,b| a.0.data.get() * b.0.data.get(), |out| {
+        let a_data = out.0.prev[0].as_ref().unwrap().data.get();
+        let b_data = out.0.prev[1].as_ref().unwrap().data.get();
+        out.0.prev[0].as_ref().unwrap().grad.update(|v| v + b_data * out.0.grad.get());
+        out.0.prev[1].as_ref().unwrap().grad.update(|v| v + a_data * out.0.grad.get());
     };
-    binary pow_op, "^" => |a,b| a.0.data.borrow().powf(*b.0.data.borrow()), |out| {
-        let base = *out.0.prev[0].0.data.borrow();
-        let exp  = *out.0.prev[1].0.data.borrow();
-        let gout = *out.0.grad.borrow();
-        let y    = *out.0.data.borrow();
-        *out.0.prev[0].0.grad.borrow_mut() += exp * base.powf(exp - 1.0) * gout;
-        *out.0.prev[1].0.grad.borrow_mut() += y * base.ln() * gout;
+    binary pow_op, "^" => |a,b| a.0.data.get().powf(b.0.data.get()), |out| {
+        let base = out.0.prev[0].as_ref().unwrap().data.get();
+        let exp  = out.0.prev[1].as_ref().unwrap().data.get();
+        let gout = out.0.grad.get();
+        let y    = out.0.data.get();
+        out.0.prev[0].as_ref().unwrap().grad.update(|v| v + exp * base.powf(exp - 1.0) * gout);
+        out.0.prev[1].as_ref().unwrap().grad.update(|v| v + y * base.ln() * gout);
     };
-    unary powneg, "^-" => |x| 1.0 / *x.0.data.borrow(), |out| {
-        let base = &out.0.prev[0];
-        let mut grad = base.0.grad.borrow_mut();
-        *grad += -(1.0 / (*base.0.data.borrow()).powf(2.0)) * *out.0.grad.borrow();
+    unary powneg, "^-" => |x| 1.0 / x.0.data.get(), |out| {
+        let base = out.0.prev[0].as_ref().unwrap();
+        base.grad.update(|g| g - out.grad.get() / (base.data.get() * base.data.get()));
     };
-    unary exp, "exp" => |x| x.0.data.borrow().exp(), |out| {
-        *out.0.prev[0].0.grad.borrow_mut() += *out.0.data.borrow() * *out.0.grad.borrow();
+    unary exp, "exp" => |x| x.0.data.get().exp(), |out| {
+        out.0.prev[0].as_ref().unwrap().grad.update(|v| v + out.0.data.get() * out.0.grad.get());
     };
-    unary ln, "log" => |x| x.0.data.borrow().ln(), |out| {
-        let xv = *out.0.prev[0].0.data.borrow();
-        *out.0.prev[0].0.grad.borrow_mut() += *out.0.grad.borrow() / xv;
+    unary ln, "log" => |x| x.0.data.get().ln(), |out| {
+        let xv = out.0.prev[0].as_ref().unwrap().data.get();
+        out.0.prev[0].as_ref().unwrap().grad.update(|v| v + out.0.grad.get() / xv);
     };
-    unary tanh, "tanh" => |x| x.0.data.borrow().tanh(), |out| {
-        let y = out.0.prev[0].0.data.borrow().tanh();
-        *out.0.prev[0].0.grad.borrow_mut() += (1.0 - y*y) * *out.0.grad.borrow();
+    unary tanh, "tanh" => |x| x.0.data.get().tanh(), |out| {
+        let y = out.0.prev[0].as_ref().unwrap().data.get().tanh();
+        out.0.prev[0].as_ref().unwrap().grad.update(|v| v + (1.0 - y*y) * out.0.grad.get());
     };
-    unary relu, "ReLU" => |x| x.0.data.borrow().max(0.0), |out| {
-        let g = if *out.0.data.borrow() > 0.0 { *out.0.grad.borrow() } else { 0.0 };
-        *out.0.prev[0].0.grad.borrow_mut() += g;
+    unary relu, "ReLU" => |x| x.0.data.get().max(0.0), |out| {
+        let g = if out.0.data.get() > 0.0 { out.0.grad.get() } else { 0.0 };
+        out.0.prev[0].as_ref().unwrap().grad.update(|v| v + g);
     };
 }
 
@@ -123,21 +122,21 @@ impl Value {
     }
 
     pub fn data(&self) -> f32 {
-        *self.0.data.borrow()
+        self.0.data.get()
     }
 
     pub fn grad(&self) -> f32 {
-        *self.0.grad.borrow()
+        self.0.grad.get()
     }
 
     pub fn zero_grad(&self) {
-        *self.0.grad.borrow_mut() = 0.0;
+        self.0.grad.set(0.0);
     }
 
     pub fn adjust(&self, val: f32) {
         let data = &self.0.data;
         let grad = &self.0.grad;
-        *data.borrow_mut() += val * *grad.borrow();
+        data.update(|v| v + val * grad.get());
     }
 
     pub fn sub(a: &Value, b: &Value) -> Self {
@@ -190,7 +189,7 @@ impl Value {
         self._build_topo(&mut topo, &mut visited);
         topo.reverse();
 
-        *self.0.grad.borrow_mut() = 1.0;
+        self.0.grad.set(1.0);
         topo.iter().for_each(|v| {
             if let Some(backprop) = v._backward {
                 backprop(&v);
@@ -200,7 +199,7 @@ impl Value {
 
     fn _build_topo(&self, topo: &mut Vec<Value>, visited: &mut HashSet<Value>) {
         if visited.insert(self.clone()) {
-            self.prev.iter().for_each(|child| {
+            self.prev.iter().flatten().for_each(|child| {
                 child._build_topo(topo, visited);
             });
             topo.push(self.clone());
@@ -229,7 +228,7 @@ impl ops::Deref for Value {
 
 impl<T: Into<f32>> From<T> for Value {
     fn from(t: T) -> Self {
-        Value::new(ValueData::new(t.into(), None, Vec::new(), None))
+        Value::new(ValueData::new(t.into(), None, [None, None], None))
     }
 }
 

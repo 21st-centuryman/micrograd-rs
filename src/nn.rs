@@ -13,11 +13,10 @@ macro_rules! mlp {
 }
 
 // RNG generator using SplitMix64
+// SAFETY: only called while constructing layers, from one thread, never from an interrupt handler.
 static mut RNG_STATE: u64 = 1337;
 
 fn uniform(a: f32, b: f32) -> f32 {
-    // SAFETY: only called while constructing layers, from one thread,
-    // never from an interrupt handler.
     let mut z = unsafe {
         RNG_STATE = RNG_STATE.wrapping_add(0x9E3779B97F4A7C15);
         RNG_STATE
