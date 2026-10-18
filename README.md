@@ -1,5 +1,6 @@
 <div align="center">
-
+Link to my [bachelor thesis](https://kth.diva-portal.org/smash/record.jsf?pid=diva2%3A1985858&dswid=8459)
+  
 ## Micrograd
 [![RUST](https://img.shields.io/badge/rust-f74c00.svg?style=for-the-badge&logoColor=white&logo=rust)]()
 [![EVCXR](https://img.shields.io/badge/Evcxr_notebook-F37626.svg?style=for-the-badge&logoColor=white&logo=jupyter)]()
@@ -10,7 +11,7 @@
 </div>
 
 ## ⇁  Welcome
-This is a thesis project to rewrite the [micrograd](https://github.com/karpathy/micrograd) framework by Andrej Karpathy to Rust. The purpose of this thesis is to discuss memory allocation of micrograd when rewritten in the Rust programming language. I looked over the limitations of writing the project similarly to Rust and how it can be improved to focus on stack allocation (which I will implement in the micrograd_v2). The report will be added to this project once it is published.
+This is a thesis project to rewrite the [micrograd](https://github.com/karpathy/micrograd) framework by Andrej Karpathy to Rust. The purpose of this thesis is to discuss memory allocation of micrograd when rewritten in the Rust programming language. I looked over the limitations of writing the project similarly to Rust and how it can be improved to focus on stack allocation (which I will implement in the micrograd_v2). 
 
 ## ⇁  Example usage
 ```rs
