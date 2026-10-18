@@ -4,11 +4,16 @@ Now for some actual Machine Learning
 --------------------------------
 */
 use kdam::{BarExt, tqdm};
-use micrograd::engine::{Activations, Value};
-use micrograd::nn::{Layer, mlp};
+use micrograd::{
+    engine::{
+        Activations::{Linear, Relu},
+        Tape, Value,
+    },
+    nn::mlp,
+};
 
 // Initialize model size
-mlp!(4);
+mlp!(3, 4, 4, 1);
 
 fn main() {
     // Variables
@@ -18,24 +23,27 @@ fn main() {
     let _ = pb.refresh();
     let ys = vec![1.0, -1.0, -1.0, 1.0]; // desired targets
 
-    let n: MLP<3, 4, 4, 1> = MLP::new(Activations::Relu, Activations::Relu, Activations::Linear);
+    let tape: &Tape = &MLPTape::new();
+    let n = MLP::new(tape, Relu, Relu, Linear);
+    let params = tape.len.get();
 
     let xs = vec![vec![2.0, 3.0, -1.0], vec![3.0, -1.0, 0.5], vec![0.5, 1.0, 1.0], vec![1.0, 1.0, -1.0]];
 
     for k in 0..range {
+        tape.len.set(params); // drop last step's nodes, keep the weights
+
         // Forward pass
         let ypred: Vec<Value> = xs
             .iter()
             .map(|x| {
-                let input_array: [Value; 3] = [Value::from(x[0]), Value::from(x[1]), Value::from(x[2])];
-                n.forward(&input_array)[0].clone()
+                let input_array: [Value; 3] = [tape.value(x[0]), tape.value(x[1]), tape.value(x[2])];
+                n.forward(&input_array)[0]
             })
             .collect();
         let loss: Value = ypred
-            .clone()
-            .into_iter()
-            .zip(ys.iter().map(|y| Value::from(*y)))
-            .map(|(yout, ygt)| (yout - ygt).pow(&2.0.into()))
+            .iter()
+            .zip(ys.iter().map(|y| tape.value(*y)))
+            .map(|(&yout, ygt)| (yout - ygt).pow(2.0))
             .sum();
 
         // Backward pass
