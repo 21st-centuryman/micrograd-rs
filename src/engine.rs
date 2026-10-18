@@ -1,23 +1,28 @@
 use std::{
     array::from_fn,
     cell::Cell,
-    collections::HashSet,
     fmt::{Debug, Formatter, Result},
-    hash::{Hash, Hasher},
     iter::Sum,
-    ops,
-    rc::Rc,
 };
 
-#[derive(Clone)]
-pub struct Value(Rc<ValueData>);
-
+#[derive(Clone, Copy)]
 pub struct ValueData {
-    pub data: Cell<f32>,
-    pub grad: Cell<f32>,
+    pub data: f32,
+    pub grad: f32,
     pub op: Option<&'static str>,
-    pub prev: [Option<Value>; 2],
-    pub _backward: Option<fn(value: &Value)>,
+    pub prev: [Option<u32>; 2],
+    pub _backward: Option<fn(&Tape, u32)>,
+}
+
+#[derive(Clone, Copy)]
+pub struct Value<'t> {
+    tape: &'t Tape,
+    idx: u32,
+}
+
+pub struct Tape<S: ?Sized = [Cell<ValueData>]> {
+    pub len: Cell<u32>,
+    nodes: S,
 }
 
 pub enum Activations {
@@ -26,144 +31,98 @@ pub enum Activations {
     Tanh,
 }
 
+impl<const L: usize> Tape<[Cell<ValueData>; L]> {
+    pub const fn new() -> Self {
+        Tape {
+            len: Cell::new(0),
+            nodes: [const { Cell::new(ValueData::EMPTY) }; L],
+        }
+    }
+}
+
+impl Tape {
+    pub fn len(&self) -> u32 {
+        self.len.get()
+    }
+
+    pub fn value(&self, data: f32) -> Value<'_> {
+        self.push(ValueData { data, ..ValueData::EMPTY })
+    }
+
+    fn push(&self, node: ValueData) -> Value<'_> {
+        let idx = self.len.replace(self.len.get() + 1);
+        self.nodes[idx as usize].set(node);
+        Value { tape: self, idx }
+    }
+
+    pub fn get(&self, i: u32) -> ValueData {
+        self.nodes[i as usize].get()
+    }
+
+    fn add_grad(&self, i: u32, g: f32) {
+        self.nodes[i as usize].update(|n| ValueData { grad: n.grad + g, ..n });
+    }
+
+    fn set_grad(&self, i: u32, g: f32) {
+        self.nodes[i as usize].update(|n| ValueData { grad: g, ..n });
+    }
+}
+
 impl ValueData {
-    fn new(data: f32, op: Option<&'static str>, prev: [Option<Value>; 2], _backward: Option<fn(value: &Value)>) -> ValueData {
+    const fn new(data: f32, op: Option<&'static str>, prev: [Option<u32>; 2], _backward: Option<fn(&Tape, u32)>) -> ValueData {
         ValueData {
-            data: Cell::new(data),
-            grad: Cell::new(0.0),
+            data,
+            grad: 0.0,
             op,
             prev,
             _backward,
         }
     }
+
+    pub const EMPTY: ValueData = ValueData::new(0.0, None, [None, None], None);
 }
 
-macro_rules! define_ops {
-    (
-        $(binary $bname:ident, $bsym:expr => |$a:ident, $b:ident| $bfwd:expr, |$out:ident| $bbwd:block;)*
-        $(unary $uname:ident, $usym:expr => |$x:ident| $ufwd:expr, |$outu:ident| $ubwd:block;)*
-    ) => {
-        $(
-            impl Value {
-                pub fn $bname($a: &Value, $b: &Value) -> Value {
-                    let _backward: fn(&Value) = |$out| $bbwd;
-                    Value::new(ValueData::new(
-                        $bfwd,
-                        Some($bsym),
-                        [Some($a.clone()), Some($b.clone())],
-                        Some(_backward),
-                    ))
-                }
-            }
-        )*
-        $(
-            impl Value {
-                pub fn $uname(&self) -> Value {
-                    let _backward: fn(&Value) = |$outu| $ubwd;
-                    Value::new(ValueData::new(
-                        { let $x = self; $ufwd },
-                        Some($usym),
-                        [Some(self.clone()), None],
-                        Some(_backward),
-                    ))
-                }
-            }
-        )*
-    };
-}
-
-define_ops! {
-    binary add, "+" => |a,b| a.0.data.get() + b.0.data.get(), |out| {
-        out.0.prev[0].as_ref().unwrap().grad.update(|v| v + out.grad.get());
-        out.0.prev[1].as_ref().unwrap().grad.update(|v| v + out.grad.get());
-    };
-    binary mul, "*" => |a,b| a.0.data.get() * b.0.data.get(), |out| {
-        let a_data = out.0.prev[0].as_ref().unwrap().data.get();
-        let b_data = out.0.prev[1].as_ref().unwrap().data.get();
-        out.0.prev[0].as_ref().unwrap().grad.update(|v| v + b_data * out.0.grad.get());
-        out.0.prev[1].as_ref().unwrap().grad.update(|v| v + a_data * out.0.grad.get());
-    };
-    binary pow_op, "^" => |a,b| a.0.data.get().powf(b.0.data.get()), |out| {
-        let base = out.0.prev[0].as_ref().unwrap().data.get();
-        let exp  = out.0.prev[1].as_ref().unwrap().data.get();
-        let gout = out.0.grad.get();
-        let y    = out.0.data.get();
-        out.0.prev[0].as_ref().unwrap().grad.update(|v| v + exp * base.powf(exp - 1.0) * gout);
-        out.0.prev[1].as_ref().unwrap().grad.update(|v| v + y * base.ln() * gout);
-    };
-    unary powneg, "^-" => |x| 1.0 / x.0.data.get(), |out| {
-        let base = out.0.prev[0].as_ref().unwrap();
-        base.grad.update(|g| g - out.grad.get() / (base.data.get() * base.data.get()));
-    };
-    unary exp, "exp" => |x| x.0.data.get().exp(), |out| {
-        out.0.prev[0].as_ref().unwrap().grad.update(|v| v + out.0.data.get() * out.0.grad.get());
-    };
-    unary ln, "log" => |x| x.0.data.get().ln(), |out| {
-        let xv = out.0.prev[0].as_ref().unwrap().data.get();
-        out.0.prev[0].as_ref().unwrap().grad.update(|v| v + out.0.grad.get() / xv);
-    };
-    unary tanh, "tanh" => |x| x.0.data.get().tanh(), |out| {
-        let y = out.0.prev[0].as_ref().unwrap().data.get().tanh();
-        out.0.prev[0].as_ref().unwrap().grad.update(|v| v + (1.0 - y*y) * out.0.grad.get());
-    };
-    unary relu, "ReLU" => |x| x.0.data.get().max(0.0), |out| {
-        let g = if out.0.data.get() > 0.0 { out.0.grad.get() } else { 0.0 };
-        out.0.prev[0].as_ref().unwrap().grad.update(|v| v + g);
-    };
-}
-
-impl Value {
-    pub fn from<T: Into<Value>>(t: T) -> Self {
-        t.into()
-    }
-
-    fn new(value: ValueData) -> Self {
-        Value(Rc::new(value))
-    }
-
+impl<'t> Value<'t> {
     pub fn data(&self) -> f32 {
-        self.0.data.get()
+        self.tape.get(self.idx).data
     }
 
     pub fn grad(&self) -> f32 {
-        self.0.grad.get()
+        self.tape.get(self.idx).grad
     }
 
     pub fn zero_grad(&self) {
-        self.0.grad.set(0.0);
+        self.tape.set_grad(self.idx, 0.0);
     }
 
     pub fn adjust(&self, val: f32) {
-        let data = &self.0.data;
-        let grad = &self.0.grad;
-        data.update(|v| v + val * grad.get());
+        self.tape.nodes[self.idx as usize].update(|n| ValueData {
+            data: n.data + val * n.grad,
+            ..n
+        })
     }
 
-    pub fn sub(a: &Value, b: &Value) -> Self {
-        Value::add(a, &Value::mul(b, &Value::from(-1.0)))
+    pub fn div(a: Value<'t>, b: Value<'t>) -> Value<'t> {
+        Value::mul(a, b.powneg())
     }
 
-    pub fn div(a: &Value, b: &Value) -> Self {
-        Value::mul(a, &b.powneg())
+    pub fn pow(self, k: f32) -> Value<'t> {
+        Value::pow_op(self, self.tape.value(k))
     }
 
-    pub fn pow(&self, b: &Value) -> Value {
-        Value::pow_op(self, b)
-    }
-
-    pub fn matmul<const M: usize, const N: usize>(a: &[[Value; N]; M], b: &[Value; N]) -> [Value; M] {
+    pub fn matmul<const M: usize, const N: usize>(a: &[[Value<'t>; N]; M], b: &[Value<'t>; N]) -> [Value<'t>; M] {
         from_fn(|i| a[i].iter().zip(b.iter()).map(|(a, b)| a * b).reduce(|a, b| a + b).unwrap())
     }
 
-    pub fn matadd<const N: usize, const M: usize>(a: &[[Value; N]; M], b: &[[Value; N]; M]) -> [[Value; N]; M] {
+    pub fn matadd<const N: usize, const M: usize>(a: &[[Value<'t>; N]; M], b: &[[Value<'t>; N]; M]) -> [[Value<'t>; N]; M] {
         from_fn(|i| from_fn(|j| &a[i][j] + &b[i][j]))
     }
 
-    pub fn matmul_add<const P: usize, const N: usize>(a: &[[Value; P]; N], b: &[Value; P], c: &[Value; N]) -> [Value; N] {
+    pub fn matmul_add<const P: usize, const N: usize>(a: &[[Value<'t>; P]; N], b: &[Value<'t>; P], c: &[Value<'t>; N]) -> [Value<'t>; N] {
         from_fn(|i| &a[i].iter().zip(b.iter()).map(|(a, b)| a * b).reduce(|a, b| a + b).unwrap() + &c[i])
     }
 
-    pub fn activate<const I: usize>(a: [Value; I], b: &Activations) -> [Value; I] {
+    pub fn activate<const I: usize>(a: [Value<'t>; I], b: &Activations) -> [Value<'t>; I] {
         match b {
             Activations::Linear => a,
             Activations::Tanh => from_fn(|i| a[i].tanh()),
@@ -171,78 +130,106 @@ impl Value {
         }
     }
 
-    pub fn sum<I: Iterator<Item = Self>>(mut iter: I) -> Self {
-        let mut sum = Value::from(0.0);
-        loop {
-            let val = iter.next();
-            if val.is_none() {
-                break;
-            }
-            sum = sum + val.unwrap();
-        }
-        sum
+    pub fn sum<I: Iterator<Item = Value<'t>>>(iter: I) -> Value<'t> {
+        iter.reduce(|a, b| a + b)
+            .expect("cannot sum an empty iterator: there is no tape to put a zero on")
     }
 
     pub fn backward(&self) {
-        let mut topo: Vec<Value> = vec![];
-        let mut visited: HashSet<Value> = HashSet::new();
-        self._build_topo(&mut topo, &mut visited);
-        topo.reverse();
-
-        self.0.grad.set(1.0);
-        topo.iter().for_each(|v| {
-            if let Some(backprop) = v._backward {
-                backprop(&v);
+        self.tape.set_grad(self.idx, 1.0);
+        (0..=self.idx).rev().for_each(|i| {
+            if let Some(f) = self.tape.get(i)._backward {
+                f(self.tape, i);
             }
         });
     }
-
-    fn _build_topo(&self, topo: &mut Vec<Value>, visited: &mut HashSet<Value>) {
-        if visited.insert(self.clone()) {
-            self.prev.iter().flatten().for_each(|child| {
-                child._build_topo(topo, visited);
-            });
-            topo.push(self.clone());
-        }
-    }
 }
 
-impl Debug for Value {
+macro_rules! define_ops {
+    (
+        $(binary $bname:ident, $bsym:expr => |$a:ident, $b:ident| $bfwd:expr, |$tb:ident, $out:ident| $bbwd:block;)*
+        $(unary $uname:ident, $usym:expr => |$x:ident| $ufwd:expr, |$tu:ident, $outu:ident| $ubwd:block;)*
+    ) => {
+        $(
+            impl<'t> Value<'t> {
+                pub fn $bname($a: Value<'t>, $b: Value<'t>) -> Value<'t> {
+                    debug_assert!(core::ptr::eq($a.tape, $b.tape), "values from different tapes");
+                    let _backward: fn(&Tape, u32) = |$tb, $out| $bbwd;
+                    $a.tape.push(ValueData::new($bfwd, Some($bsym), [Some($a.idx), Some($b.idx)], Some(_backward)))
+                }
+            }
+        )*
+        $(
+            impl<'t> Value<'t> {
+                pub fn $uname(self) -> Value<'t> {
+                    let _backward: fn(&Tape, u32) = |$tu, $outu| $ubwd;
+                    self.tape.push(ValueData::new({ let $x = self; $ufwd }, Some($usym), [Some(self.idx), None], Some(_backward)))
+                }
+            }
+        )*
+    };
+}
+
+define_ops! {
+    binary add, "+" => |a, b| a.data() + b.data(), |t, out| {
+        let o = t.get(out);
+        t.add_grad(o.prev[0].unwrap(), o.grad);
+        t.add_grad(o.prev[1].unwrap(), o.grad);
+    };
+
+    binary sub, "-" => |a, b| a.data() - b.data(), |t, out| {
+        let o = t.get(out);
+        t.add_grad(o.prev[0].unwrap(), o.grad);
+        t.add_grad(o.prev[1].unwrap(), -o.grad);
+    };
+
+    binary mul, "*" => |a, b| a.data() * b.data(), |t, out| {
+        let o = t.get(out);
+        let (a, b) = (o.prev[0].unwrap(), o.prev[1].unwrap());
+        let (a_data, b_data) = (t.get(a).data, t.get(b).data);
+        t.add_grad(a, b_data * o.grad);
+        t.add_grad(b, a_data * o.grad);
+    };
+
+    binary pow_op, "^" => |a, b| a.data().powf(b.data()), |t, out| {
+        let o = t.get(out);
+        let (a, b) = (o.prev[0].unwrap(), o.prev[1].unwrap());
+        let (base, exp) = (t.get(a).data, t.get(b).data);
+        t.add_grad(a, exp * base.powf(exp - 1.0) * o.grad);
+    };
+
+    unary powneg, "^-" => |x| 1.0 / x.data(), |t, out| {
+        let o = t.get(out);
+        let x = o.prev[0].unwrap();
+        let x_data = t.get(x).data;
+        t.add_grad(x, -o.grad / (x_data * x_data));
+    };
+
+    unary exp, "exp" => |x| x.data().exp(), |t, out| {
+        let o = t.get(out);
+        t.add_grad(o.prev[0].unwrap(), o.data * o.grad);
+    };
+
+    unary ln, "log" => |x| x.data().ln(), |t, out| {
+        let o = t.get(out);
+        let x = o.prev[0].unwrap();
+        t.add_grad(x, o.grad / t.get(x).data);
+    };
+
+    unary tanh, "tanh" => |x| x.data().tanh(), |t, out| {
+        let o = t.get(out);
+        t.add_grad(o.prev[0].unwrap(), (1.0 - o.data * o.data) * o.grad);
+    };
+
+    unary relu, "ReLU" => |x| x.data().max(0.0), |t, out| {
+        let o = t.get(out);
+        if o.data > 0.0 { t.add_grad(o.prev[0].unwrap(), o.grad); }
+    };
+}
+
+impl Debug for Value<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "Value(data={}, grad={})", self.data(), self.grad())
-    }
-}
-
-/*
-----------------------------------------------------------------------------------
-Rust requires this boilerplate for stuff like hashset, derefrenceing into etc.
-----------------------------------------------------------------------------------
-*/
-impl ops::Deref for Value {
-    type Target = Rc<ValueData>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T: Into<f32>> From<T> for Value {
-    fn from(t: T) -> Self {
-        Value::new(ValueData::new(t.into(), None, [None, None], None))
-    }
-}
-
-impl PartialEq for Value {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
-    }
-}
-
-impl Eq for Value {}
-
-impl Hash for Value {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        Rc::as_ptr(&self.0).hash(state);
     }
 }
 
@@ -251,41 +238,48 @@ impl Hash for Value {
 This allows us to use Value + Value instead of Value.add(Value), it works just like micrograd
 ------------------------------------------------------------------------------------------------
 */
+
 macro_rules! impl_ops {
     ( $( $Trait:ident::$method:ident ),* $(,)? ) => {
         $(
-            impl ::std::ops::$Trait<Value> for Value {
-                type Output = Value;
-                fn $method(self, other: Value) -> Self::Output {
-                    Value::$method(&self, &other)
-                }
+            impl<'t> core::ops::$Trait<Value<'t>> for Value<'t> {
+                type Output = Value<'t>;
+                fn $method(self, other: Value<'t>) -> Value<'t> { Value::$method(self, other) }
             }
-            impl<'a,'b> ::std::ops::$Trait<&'b Value> for &'a Value {
-                type Output = Value;
-                fn $method(self, other: &'b Value) -> Self::Output {
-                    Value::$method(self, other)
-                }
+            impl<'a, 't> core::ops::$Trait<&'a Value<'t>> for &'a Value<'t> {
+                type Output = Value<'t>;
+                fn $method(self, other: &'a Value<'t>) -> Value<'t> { Value::$method(*self, *other) }
+            }
+            impl<'t> core::ops::$Trait<f32> for Value<'t> {
+                type Output = Value<'t>;
+                fn $method(self, k: f32) -> Value<'t> { Value::$method(self, self.tape.value(k)) }
+            }
+            impl<'t> core::ops::$Trait<Value<'t>> for f32 {
+                type Output = Value<'t>;
+                fn $method(self, v: Value<'t>) -> Value<'t> { Value::$method(v.tape.value(self), v) }
             }
         )*
     }
 }
+
 impl_ops!(Add::add, Sub::sub, Mul::mul, Div::div);
 
-impl ::std::ops::Neg for Value {
-    type Output = Value;
-    fn neg(self) -> Self::Output {
-        Value::mul(&self, &Value::from(-1.0))
-    }
-}
-impl<'a> ::std::ops::Neg for &'a Value {
-    type Output = Value;
-    fn neg(self) -> Self::Output {
-        Value::mul(self, &Value::from(-1.0))
+impl<'t> core::ops::Neg for Value<'t> {
+    type Output = Value<'t>;
+    fn neg(self) -> Value<'t> {
+        self * -1.0
     }
 }
 
-impl Sum for Value {
-    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+impl<'a, 't> core::ops::Neg for &'a Value<'t> {
+    type Output = Value<'t>;
+    fn neg(self) -> Value<'t> {
+        *self * -1.0
+    }
+}
+
+impl<'t> Sum for Value<'t> {
+    fn sum<I: Iterator<Item = Value<'t>>>(iter: I) -> Value<'t> {
         Value::sum(iter)
     }
 }

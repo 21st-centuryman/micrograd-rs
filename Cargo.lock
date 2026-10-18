@@ -96,12 +96,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d26c52dbd32dccf2d10cac7725f8eae5296885fb5703b261f7d0a0739ec807ab"
 
 [[package]]
-name = "log"
-version = "0.4.28"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
-
-[[package]]
 name = "memchr"
 version = "2.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -115,8 +109,6 @@ dependencies = [
  "kdam",
  "mlp_macro",
  "petgraph",
- "poloto",
- "rust-mnist",
 ]
 
 [[package]]
@@ -139,15 +131,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "poloto"
-version = "19.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "164dbd541c9832e92fa34452e9c2e98b515a548a3f8549fb2402fe1cd5e46b96"
-dependencies = [
- "tagu",
-]
-
-[[package]]
 name = "proc-macro2"
 version = "1.0.101"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -163,15 +146,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce25767e7b499d1b604768e7cde645d14cc8584231ea6b295e9c9eb22c02e1d1"
 dependencies = [
  "proc-macro2",
-]
-
-[[package]]
-name = "rust-mnist"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f701613ce754c4614b557827f506381b486a29c98b55046765800e79208d3912"
-dependencies = [
- "log",
 ]
 
 [[package]]
@@ -232,12 +206,6 @@ dependencies = [
  "quote",
  "unicode-ident",
 ]
-
-[[package]]
-name = "tagu"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eddb6b06d20fba9ed21fca3d696ee1b6e870bca0bcf9fa2971f6ae2436de576a"
 
 [[package]]
 name = "terminal_size"

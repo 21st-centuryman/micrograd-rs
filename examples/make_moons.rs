@@ -1,13 +1,20 @@
 use csv;
-use kdam::{tqdm, BarExt};
-use micrograd::engine::{Activations, Value};
-//use micrograd::mlp;
-use micrograd::nn::{mlp, Layer};
+use kdam::{BarExt, tqdm};
+use micrograd::{
+    engine::{
+        Activations::{Linear, Relu},
+        Tape, Value,
+    },
+    nn::mlp,
+};
 
 // Initialize model size
-mlp!(4);
+mlp!(2, 16, 16, 1);
 
 fn main() {
+    let tape: &Tape = &MLPTape::new();
+    let model = MLP::new(tape, Relu, Relu, Linear);
+
     let (x, y): (Vec<[f32; 2]>, Vec<f32>) = csv::ReaderBuilder::new()
         .from_path("./datasets/make_moons/make_moons.csv")
         .unwrap()
@@ -23,56 +30,46 @@ fn main() {
         })
         .unzip(); // Splits into two vectors
 
-    let model: MLP<2, 16, 16, 1> = MLP::new(Activations::Relu, Activations::Relu, Activations::Linear);
-    //let model = mlp!(2, 16, 16, 1);
+    fn loss<'t>(tape: &'t Tape, xs: &[[f32; 2]], ys: &[f32], model: &MLP<'t>) -> f32 {
+        let params = tape.len.get();
+        let n = xs.len() as f32;
+        let mut total = 0.0;
 
-    fn loss(xs: &[[f32; 2]], ys: &[f32], model: &MLP<2, 16, 16, 1>) -> Value {
-        let inputs: Vec<Vec<Value>> = xs.iter().map(|xrow| vec![Value::from(xrow[0]), Value::from(xrow[1])]).collect();
+        // Data loss
+        for (xrow, yi) in xs.iter().zip(ys) {
+            let score = model.forward(&[tape.value(xrow[0]), tape.value(xrow[1])])[0];
+            let loss = (tape.value(1.0) + tape.value(-yi) * score).relu() / tape.value(n);
+            loss.backward();
+            total += loss.data();
+            tape.len.set(params);
+        }
 
-        // forward the model to get scores
-        let scores: Vec<Value> = inputs
-            .iter()
-            .map(|xrow| {
-                let input_array: &[Value; 2] = xrow.as_slice().try_into().expect("Input size mismatch");
-                model.forward(input_array)[0].clone()
-            })
-            .collect();
-
-        let losses: Vec<Value> = ys
-            .iter()
-            .zip(&scores)
-            .map(|(yi, scorei)| (Value::from(1.0) + &Value::from(-yi) * scorei).relu())
-            .collect();
-        let n: f32 = (&losses).len() as f32;
-        let data_loss: Value = losses.into_iter().sum::<Value>() / Value::from(n);
-
+        // Regularization
         let alpha: f32 = 0.0001;
-        let reg_loss: Value = Value::from(alpha) * model.parameters().map(|p| p * p).into_iter().sum::<Value>();
-        let total_loss = data_loss + reg_loss;
+        let reg_loss: Value = tape.value(alpha) * model.parameters().map(|p| p * p).sum::<Value>();
+        reg_loss.backward();
+        total += reg_loss.data();
+        tape.len.set(params);
 
-        total_loss
+        total
     }
 
     let range = 150;
     let mut pb = tqdm!(total = range);
     let _ = pb.refresh();
     for k in 0..range {
-        // forward
-        let total_loss = loss(&x, &y, &model);
-
         // backward
         model.parameters().for_each(|p| p.zero_grad());
 
-        total_loss.backward();
+        let total_loss = loss(tape, &x, &y, &model);
 
         // update (sgd)
         let learning_rate = 1.0 - 0.9 * (k as f32) / (range as f32);
         for p in model.parameters() {
-            let delta = learning_rate * p.grad.get();
-            p.data.update(|v| v - delta);
+            p.adjust(-learning_rate);
         }
 
-        pb.set_description(format!("Loss {:.3}", total_loss.data.get()));
+        pb.set_description(format!("Loss {:.3}", total_loss));
         let _ = pb.update(1);
     }
 }
