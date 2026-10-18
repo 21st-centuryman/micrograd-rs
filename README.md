@@ -1,6 +1,7 @@
 <div align="center">
-Link to my [bachelor thesis](https://kth.diva-portal.org/smash/record.jsf?pid=diva2%3A1985858&dswid=8459)
   
+Link to my [bachelor thesis](https://kth.diva-portal.org/smash/record.jsf?pid=diva2%3A1985858&dswid=8459)
+
 ## Micrograd
 [![RUST](https://img.shields.io/badge/rust-f74c00.svg?style=for-the-badge&logoColor=white&logo=rust)]()
 [![EVCXR](https://img.shields.io/badge/Evcxr_notebook-F37626.svg?style=for-the-badge&logoColor=white&logo=jupyter)]()
